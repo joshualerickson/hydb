@@ -1,0 +1,14 @@
+Package: hydb
+Title: Interact with Hydrological Database
+Version: 0.0.1
+Authors@R: 
+    person("Josh", "Erickson", ,"joshualerickson@gmail.com", role = c("aut", "cre"))
+Description: The package provides functions for the cleaning, manipulating, and testing of hydrological data collected from USDA-USFS staff and other contributors as well (state, NGO, research).
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.2
+Imports: 
+    DBI,
+    dplyr,
+    RSQLite
