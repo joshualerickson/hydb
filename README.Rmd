@@ -90,11 +90,21 @@ meta_data <- fetch_hydb(table = 'metadata')
 
 head(meta_data)
 
-# now just get flow_obs sites on the Kootenai National Forest
-flow_kootenai <- fetch_hydb(table = 'flow_obs',
-                            sid = meta_data[meta_data$forest == 'Kootenai',]$sid)
+# now just get flow_dv sites on the Kootenai National Forest
+flow_kootenai_dv <- fetch_hydb(table = 'flow_dv',
+                            sid = meta_data[meta_data$forest == 'Kootenai' &
+                                                 meta_data$district == 'Ksanka',]$sid)
 
-head(flow_kootenai)
+head(flow_kootenai_dv)
+
+library(ggplot2)
+
+flow_kootenai_dv %>% 
+  left_join(meta_data, by = 'sid') %>% 
+  ggplot(aes(dt, value)) + 
+  geom_line() + 
+  facet_wrap(~station_nm, scales = 'free')
+
 ```
 
 **{DBI} & {RSQLite}**  
@@ -111,12 +121,12 @@ mydb <- DBI::dbConnect(RSQLite::SQLite(), paste0(path,"/hydb.sqlite"))
 metadata <- dplyr::collect(tbl(mydb, 'station_metadata'))
 
 head(metadata)
-# now just get flow_obs sites on the Kootenai National Forest
+# now just get flow_dv sites on the Kootenai National Forest
     
-fetch_table = dplyr::collect(tbl(mydb, 'flow_obs'))               
+fetch_table = dplyr::collect(tbl(mydb, 'flow_dv'))               
                            
 flow_kootenai <- fetch_table %>%
-                 dplyr::filter(sid %in% meta_data[meta_data$forest == 'Kootenai',]$sid)
+                 dplyr::filter(sid %in% meta_data[meta_data$forest == 'Kootenai' & meta_data$district == 'Ksanka',]$sid )
 
 head(flow_kootenai)
 ```

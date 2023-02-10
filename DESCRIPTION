@@ -11,4 +11,10 @@ RoxygenNote: 7.1.2
 Imports: 
     DBI,
     dplyr,
-    RSQLite
+    RSQLite,
+    lubridate,
+    dplyr,
+    shiny,
+    shinydashboard,
+    htmltools,
+    DT

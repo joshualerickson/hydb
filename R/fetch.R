@@ -3,6 +3,7 @@
 #' @param table A character vector of table names, e.g. 'station_metadata', 'flow_dv', etc.
 #' @param sid A character vector of station ids. NULL (default).
 #' @param network logical. Whether to connect via the network or server. TRUE (default).
+#' @importFrom dplyr tbl
 #'
 #' @return A data.frame
 #' @export
@@ -40,6 +41,13 @@ fetch_hydb <- function(table,
   }
 
   DBI::dbDisconnect(mydb)
+
+  if(!grepl('metadata', table)){
+
+  fetch_table <- fetch_table %>%
+                 dplyr::mutate(dt = lubridate::as_datetime(dt))
+
+  }
 
   return(fetch_table)
 

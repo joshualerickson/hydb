@@ -134,21 +134,33 @@ head(meta_data)
 #> 5 Edna       -115.  48.7 22878673     5 Kootenai Ksanka  
 #> 6 Grave      -115.  48.8 22878787     6 Kootenai Ksanka
 
-# now just get flow_obs sites on the Kootenai National Forest
-flow_kootenai <- fetch_hydb(table = 'flow_obs',
-                            sid = meta_data[meta_data$forest == 'Kootenai',]$sid)
+# now just get flow_dv sites on the Kootenai National Forest
+flow_kootenai_dv <- fetch_hydb(table = 'flow_dv',
+                            sid = meta_data[meta_data$forest == 'Kootenai' &
+                                                 meta_data$district == 'Ksanka',]$sid)
 
-head(flow_kootenai)
+head(flow_kootenai_dv)
 #> # A tibble: 6 × 3
-#>          dt value   sid
-#>       <dbl> <dbl> <int>
-#> 1 854712000 26.0     20
-#> 2 857131200  6.92    20
-#> 3 857563200 16.1     20
-#> 4 857736000 15.6     20
-#> 5 858945600 24       20
-#> 6 859291200 26.0     20
+#>   dt                  value   sid
+#>   <dttm>              <dbl> <int>
+#> 1 2022-05-05 12:00:00 19.1     12
+#> 2 2022-05-06 12:00:00 22.3     12
+#> 3 2022-05-07 12:00:00 19.1     12
+#> 4 2022-05-08 12:00:00 14.1     12
+#> 5 2022-05-09 12:00:00 11.0     12
+#> 6 2022-05-10 12:00:00  8.92    12
+
+library(ggplot2)
+#> Warning: package 'ggplot2' was built under R version 4.2.1
+
+flow_kootenai_dv %>% 
+  left_join(meta_data, by = 'sid') %>% 
+  ggplot(aes(dt, value)) + 
+  geom_line() + 
+  facet_wrap(~station_nm, scales = 'free')
 ```
+
+<img src="man/figures/README-unnamed-chunk-3-1.png" width="75%" style="display: block; margin: auto;" />
 
 **{DBI} & {RSQLite}**
 
@@ -174,23 +186,23 @@ head(metadata)
 #> 4 Dodge      -115.  48.9 22878889     4 Kootenai Ksanka  
 #> 5 Edna       -115.  48.7 22878673     5 Kootenai Ksanka  
 #> 6 Grave      -115.  48.8 22878787     6 Kootenai Ksanka
-# now just get flow_obs sites on the Kootenai National Forest
+# now just get flow_dv sites on the Kootenai National Forest
     
-fetch_table = dplyr::collect(tbl(mydb, 'flow_obs'))               
+fetch_table = dplyr::collect(tbl(mydb, 'flow_dv'))               
                            
 flow_kootenai <- fetch_table %>%
-                 dplyr::filter(sid %in% meta_data[meta_data$forest == 'Kootenai',]$sid)
+                 dplyr::filter(sid %in% meta_data[meta_data$forest == 'Kootenai' & meta_data$district == 'Ksanka',]$sid )
 
 head(flow_kootenai)
 #> # A tibble: 6 × 3
-#>          dt value   sid
-#>       <dbl> <dbl> <int>
-#> 1 854712000 26.0     20
-#> 2 857131200  6.92    20
-#> 3 857563200 16.1     20
-#> 4 857736000 15.6     20
-#> 5 858945600 24       20
-#> 6 859291200 26.0     20
+#>           dt value   sid
+#>        <dbl> <dbl> <int>
+#> 1 1651752000 19.1     12
+#> 2 1651838400 22.3     12
+#> 3 1651924800 19.1     12
+#> 4 1652011200 14.1     12
+#> 5 1652097600 11.0     12
+#> 6 1652184000  8.92    12
 ```
 
 ## Contributing
