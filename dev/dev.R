@@ -45,40 +45,70 @@ gpt <- gpt %>% group_by(Stream) %>% slice(n=1) %>% ungroup()
   gd_q <- gd %>% select(Stream, dt, Q, type) %>%
     mutate(param = case_when(
       type == 'Observed Q' ~ 'flow_obs',
-      type == 'Hourly Q' ~ 'flow_hrly',
+      type == 'Hourly Q' ~ 'flow_iv',
       type == 'Daily Q' ~ 'flow_dv',
       TRUE ~ NA_character_
     )) %>% rename(value = 'Q',
                   station_nm = 'Stream') %>%
-    select(-type) %>% filter(!is.na(value))
+    select(-type) %>% filter(!is.na(value)) %>%
+    mutate(date = lubridate::date(dt),
+           time = NA_real_)
 
-  gd_q <- gd_q %>% left_join(gpt %>% select(station_nm, sid)) %>%
+  meta_data <- dplyr::collect(tbl(mydb, 'station_metadata'))
+  random_numbers <- sample(x = 10000:99999,
+             size = 20,
+             replace = FALSE)
+  meta_data <- meta_data %>% mutate(sid = paste0('011401', random_numbers))
+  meta_data <- meta_data %>% mutate(region = "Northern Region")
+  meta_data <- meta_data %>% relocate(region, .after = sid)
+
+  gd_q <- gd_q %>% left_join(meta_data %>% select(station_nm, sid)) %>%
           select(-station_nm)
 
   gd_tss <- gd %>% select(Stream, dt, TSS, type) %>%
     mutate(param = case_when(
       type == 'Observed Q' ~ 'tss_obs',
-      type == 'Hourly Q' ~ 'tss_hrly',
+      type == 'Hourly Q' ~ 'tss_iv',
       type == 'Daily Q' ~ 'tss_dv',
       TRUE ~ NA_character_
     )) %>% rename(value = 'TSS',
                   station_nm = 'Stream') %>%
-    select(-type) %>% filter(!is.na(value))
+    select(-type) %>% filter(!is.na(value))%>%
+    mutate(date = lubridate::date(dt),
+           time = NA_real_)
 
-  gd_tss <- gd_tss %>% left_join(gpt %>% select(station_nm, sid)) %>%
+  gd_tss <- gd_tss %>% left_join(meta_data %>% select(station_nm, sid)) %>%
     select(-station_nm)
-iv <- gd_q %>% filter(param == 'flow_hrly') %>% select(-param)
 
-dv <- gd_q %>% filter(param == 'flow_dv') %>% select(-param)
-obs <- gd_q %>% filter(param == 'flow_obs') %>% select(-param)
-obs_tss <- gd_tss %>% select(-param)
-names(mydb)
+#meta data entry
 
-dbWriteTable(mydb, "station_metadata", gpt)
+dbWriteTable(mydb, "station_metadata", meta_data, overwrite = T)
+
+# flow section
+iv <- gd_q %>% filter(param == 'flow_iv') %>% select(dt, iv_00060 = 'value', sid)
+
+dv <- gd_q %>% filter(param == 'flow_dv') %>% select(date, dv_00060 = 'value',sid)
+obs <- gd_q %>% filter(param == 'flow_obs') %>% select(date, time, obs_00060 = 'value', sid)
+
+
 dbWriteTable(mydb, "flow_obs", obs, overwrite = T)
-dbWriteTable(mydb, "precip_obs", value = data.frame(dt = vector('character'),
-                                                value = vector('numeric'),
-                                                sid = vector('integer')))
+#tss section
+iv <- gd_tss %>% filter(param == 'tss_iv') %>% select(dt, iv_00530 = 'value', sid)
+
+dv <- gd_tss %>% filter(param == 'tss_dv') %>% select(date, dv_00530 = 'value',sid)
+obs <- gd_tss %>% filter(param == 'tss_obs') %>% select(date, time, obs_00530 = 'value', sid)
+
+
+dbWriteTable(mydb, "tss_dv", dv, overwrite = T)
+
+
+dbWriteTable(mydb, "airtemp_obs", value = data.frame(date = vector('character'),
+                                                     time = vector('numeric'),
+                                                obs_00021 = vector('numeric'),
+                                                sid = vector('integer')),
+             overwrite = TRUE)
+
+
 
 dbRemoveTable(mydb, 'stream_tss')
 
@@ -90,10 +120,6 @@ explain(testing_q %>% filter(sid %in% c(1:5)))
 
 library(dbplyr)
 
-mydb
-testing_q <- tbl(mydb,'flow_dv')
-
-t <- collect(testing_q)
 
 m <- tbl(mydb, 'station_metadata')
 
@@ -104,6 +130,7 @@ dbExecute(mydb, "UPDATE station_metadata SET district = :district where sid = :s
                             sid = m_collect$sid))
 
 
+m <- tbl(mydb, 'stage_obs')
 m_collect <- collect(m)
 
 t_join <- t %>% left_join(m_collect)

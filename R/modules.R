@@ -34,13 +34,20 @@ hydbMod <- function(input, output, session, values, file_path){
 
   inFile <- file_path()
 
-  df <- readxl::read_xlsx(inFile$datapath) %>%
-                   janitor::clean_names()
+df <-   switch (sub('.*\\.','', inFile$name),
+                'xlsx' = readxl::read_xlsx(inFile$datapath) %>%
+                        janitor::clean_names(),
+                'csv' = readr::read_csv(inFile$datapath) %>%
+                        janitor::clean_names(),
+                'tsv' = readr::read_tsv(inFile$datapath) %>%
+                        janitor::clean_names(),
+                'txt' = readr::read_table(inFile$datapath) %>%
+                  janitor::clean_names()
+                )
 
   output$data <- DT::renderDataTable(DT::datatable(df, extensions = 'Select', selection = list(target = "column")))
 
-  values$selected_df <- suppressWarnings(reactive(df[,input$data_columns_selected, drop = FALSE] %>%
-                                                    dplyr::rename_with(~name_params_to_update(.x))))
+  values$selected_df <- suppressWarnings(reactive(df[,input$data_columns_selected, drop = FALSE]))
 
 
   })

@@ -63,6 +63,7 @@ app_ui_hydb <- function(request) {
                                syle = 'height:92vh',
                       hydbModUI("hydb_ui_1"),
                       uiOutput('select_table'),
+                      uiOutput("sid"),
                       actionButton('begin_upload', 'Submit Table')
           )
 
@@ -93,6 +94,13 @@ app_server_hydb <- function( input, output, session ) {
                      selected = '',
                      choices = c('', DBI::dbListTables(values$mydb))))
 
+  output$sid <- shiny::renderUI(shiny::selectInput(
+    'sid',
+    "Station ID",
+    choices = c('',fetch_hydb('metadata')$station_nm),
+    selected=""
+  ))
+
   callModule(hydbMod, "hydb_ui_1", values = values, file_path = reactive(input$file))
 
   observeEvent(input$tabchart, once = TRUE, {
@@ -107,28 +115,65 @@ app_server_hydb <- function( input, output, session ) {
     margin: 100px;}'
                                   )))})
 
+  values$table_selection <- reactive(input$db_table)
+
   observeEvent(input$begin_upload,{
 
     req(input$db_table != '')
 
+    # error catching
+    #check lengths based on table type
+
+    if(!error_catching_input(values$selected_df(), values$table_selection())) {
+
+      statement <- switch(sub('.*\\_', '', values$table_selection()),
+             'dv' = paste0('"',values$table_selection(),'"',
+                           ' Requires ', 2, ' columns.'),
+             'iv' = paste0('"',values$table_selection(),'"',
+                           ' Requires ', 2, ' columns.'),
+             'obs' = paste0('"',values$table_selection(),'"',
+                           ' Requires ', 2 ,' or ', 3, ' columns.'))
+
+      shinyWidgets::show_alert(statement,
+                               'please reselect',
+                               type = 'warning'
+                                )
+
+    } else if (!error_catching_param_names(values$selected_df(), values$table_selection())[[1]]) {
+
+
+
+      statement <- switch(sub('.*\\_', '', values$table_selection()),
+                          'dv' = paste0('"',values$table_selection(),'"',
+                                        ' Requires ', '"value" and "date" columns.'),
+                          'iv' = paste0('"',values$table_selection(),'"',
+                                        ' Requires ', '"value" and "dt" columns.'),
+                          'obs' = paste0('"',values$table_selection(),'"',
+                                         ' Requires ', '"value", "date", and/or "time" columns.'))
+
+      shinyWidgets::show_alert(statement,
+                               'please reselect with the correct column name',
+                               type = 'warning'
+      )
+
+    } else {
+
     showModal(modalDialog(
-      title = "Uploading the current data",
-      easyClose = FALSE,
-      footer = actionButton('done_begin_upload','Done'),
+      title = "Data that you selected",
+      footer = tagList(
+                modalButton('Cancel'),
+                actionButton('done_begin_upload','Upload')),
+    easyClose = TRUE,
       tags$style(
         type = 'text/css',
         '.modal-dialog {
     width: fit-content !important;}'
       ),
-    shinydashboard::box(width = 4,
-                        shiny::selectInput("sid", "Station ID",
-                                                     choices = fetch_hydb('metadata')$station_nm,
-                                                     selected=" ")),
-    shinydashboard::box(width = 8,
+    shinydashboard::box(width = 12,
                         DT::dataTableOutput('selected_df_dt'))
 
     ))
-
+}
   })
 
 
@@ -136,17 +181,49 @@ app_server_hydb <- function( input, output, session ) {
 
   output$selected_df_dt <- DT::renderDataTable({
 
-  station_sid <- reactive({
+  values$station_sid <- reactive({
                     fetch_hydb('metadata') %>%
                     dplyr::filter(station_nm %in% input$sid) %>%
                     dplyr::pull(sid)
                                     })
 
-  values$selected_df2 <- reactive(values$selected_df() %>%
-                                    dplyr::mutate(sid = station_sid()) %>%
-                                             na.omit())
+  print(values$station_sid())
+  quality_controlled_df <-
+
+    if(sub('.*\\_', '', values$table_selection()) %in% 'obs'){
+
+      if(any(names(error_catching_param_names(values$selected_df(), values$table_selection())[[2]]) %in% 'time')){
+
+      error_catching_param_names(values$selected_df(), values$table_selection())[[2]] %>%
+        dplyr::mutate(sid = values$station_sid()) %>%
+          na.omit()
+
+      } else {
+
+        error_catching_param_names(values$selected_df(), values$table_selection())[[2]] %>%
+          dplyr::mutate(sid = values$station_sid(),
+                        time = NA_real_)
+
+      }
+
+    } else {
+
+      error_catching_param_names(values$selected_df(), values$table_selection())[[2]] %>%
+                           dplyr::mutate(sid = values$station_sid()) %>%
+                           na.omit()
+
+    }
+
+  values$selected_df2 <- reactive(switch(sub('.*\\_', '', values$table_selection()),
+                        'dv' = quality_controlled_df %>%
+                          dplyr::mutate(date = lubridate::as_date(date)),
+                        'iv' = quality_controlled_df %>%
+                          dplyr::mutate(dt = lubridate::as_datetime(dt)),
+                        'obs' = quality_controlled_df %>%
+                          dplyr::mutate(date = lubridate::as_date(date))))
 
   DT::datatable(values$selected_df2())
+
 
   })
 
@@ -156,7 +233,56 @@ app_server_hydb <- function( input, output, session ) {
   })
 
 
-  observeEvent(input$done_begin_upload, {
+  observeEvent(input$done_begin_upload,{
+
+
+    values$identical <- switch(sub('.*\\_', '', values$table_selection()),
+                               'dv' = all.equal(fetch_hydb(values$table_selection(), values$station_sid()) %>%
+                                                  dplyr::filter(date %in% values$selected_df2()$date),values$selected_df2(), check.attributes = F),
+                               'iv' = all.equal(fetch_hydb(values$table_selection(), values$station_sid()) %>%
+                                                  dplyr::filter(dt %in% values$selected_df2()$dt),values$selected_df2(), check.attributes = F),
+                               'obs' = all.equal(fetch_hydb(values$table_selection(), values$station_sid()) %>%
+                                                   dplyr::filter(date %in% values$selected_df2()$date,
+                                                                 time %in% values$selected_df2()$time),values$selected_df2(), check.attributes = F))
+
+    print(values$station_sid())
+    print(fetch_hydb(values$table_selection(), values$station_sid()) %>%
+            dplyr::filter(date %in% values$selected_df2()$date))
+    if(length(values$identical) == 1){
+
+      shinyWidgets::show_alert("Looks like you've added this dataset before...",
+                               'please reselect and try again',
+                               type = 'warning'
+      )
+
+    } else {
+
+  showModal(modalDialog(
+    title = "Final Chance to Bail",
+      footer = tagList(
+        modalButton('Cancel'),
+        actionButton('done_begin_final_upload','Upload')),
+    easyClose = TRUE,
+    tags$style(
+      type = 'text/css',
+      '.modal-dialog {
+    width: fit-content !important;}'
+    ),
+    shinydashboard::box(width = 12, paste0('Are you sure you want to add ',
+                                           values$station_sid(),' with ', values$table_selection(),
+                                           ' into the database?'
+                                           )
+                        )))
+    }
+})
+
+  observeEvent(input$done_begin_final_upload, {
+
+
+
+    dbAppendTable(values$mydb, values$table_selection(), values$selected_df2())
+
+
     removeModal()
 
   })

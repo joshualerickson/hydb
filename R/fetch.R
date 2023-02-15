@@ -15,9 +15,11 @@ fetch_hydb <- function(table,
 
 
   if(network){
+
   path <- 'T:/FS/NFS/Kootenai/Program/2500Watershed/GIS/SO/hydb'
 
   mydb <- DBI::dbConnect(RSQLite::SQLite(), paste0(path,"/hydb.sqlite"))
+
   }
 
   fetch_table <- switch(table,
@@ -30,13 +32,22 @@ fetch_hydb <- function(table,
                         'precip_iv' = dplyr::collect(tbl(mydb, 'precip_iv')),
                         'precip_dv' = dplyr::collect(tbl(mydb, 'precip_dv')),
                         'precip_obs' = dplyr::collect(tbl(mydb, 'precip_obs')),
+                        'stage_iv' = dplyr::collect(tbl(mydb, 'stage_iv')),
+                        'stage_dv' = dplyr::collect(tbl(mydb, 'stage_dv')),
+                        'stage_obs' = dplyr::collect(tbl(mydb, 'stage_obs')),
+                        'airtemp_iv' = dplyr::collect(tbl(mydb, 'airtemp_iv')),
+                        'airtemp_dv' = dplyr::collect(tbl(mydb, 'airtemp_dv')),
+                        'airtemp_obs' = dplyr::collect(tbl(mydb, 'airtemp_obs')),
+                        'wtemp_iv' = dplyr::collect(tbl(mydb, 'wtemp_iv')),
+                        'wtemp_dv' = dplyr::collect(tbl(mydb, 'wtemp_dv')),
+                        'wtemp_obs' = dplyr::collect(tbl(mydb, 'wtemp_obs')),
                         'metadata' = dplyr::collect(tbl(mydb, 'station_metadata'))
                       )
 
   if(!is.null(sid)){
 
   fetch_table <- fetch_table %>%
-                 dplyr::filter(sid %in% sid)
+                 dplyr::filter(sid %in% {{sid}})
 
   }
 
@@ -44,8 +55,14 @@ fetch_hydb <- function(table,
 
   if(!grepl('metadata', table)){
 
-  fetch_table <- fetch_table %>%
-                 dplyr::mutate(dt = lubridate::as_datetime(dt))
+    fetch_table <- switch(sub('.*\\_', '', table),
+           'dv' = fetch_table %>%
+                  dplyr::mutate(date = lubridate::as_date(date)),
+           'iv' = fetch_table %>%
+                  dplyr::mutate(dt = lubridate::as_datetime(dt)),
+           'obs' = fetch_table %>%
+                   dplyr::mutate(date = lubridate::as_date(date)))
+
 
   }
 
