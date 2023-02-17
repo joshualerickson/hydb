@@ -17,4 +17,5 @@ Imports:
     shiny,
     shinydashboard,
     htmltools,
-    DT
+    DT,
+    golem

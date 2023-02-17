@@ -56,11 +56,14 @@ error=function(cond) {
 }),
 
     'stage' = tryCatch({data %>% dplyr::rename_with(~dplyr::case_when(
-    .x == "GH" ~ paste0(sub('.*\\_', '', table_type), "00065"),
-    .x == "gh" ~ paste0(sub('.*\\_', '', table_type), "00065"),
+    .x == "GH" ~ paste0(sub('.*\\_', '', table_type), "_00065"),
+    .x == "gh" ~ paste0(sub('.*\\_', '', table_type), "_00065"),
+    .x == "stage" ~ paste0(sub('.*\\_', '', table_type), "_00065"),
+    .x == "stage_height" ~ paste0(sub('.*\\_', '', table_type), "_00065"),
+    grepl("gage", .x) ~ paste0(sub('.*\\_', '', table_type), "_00065"),
     .x == "dates" ~ "date",
     .x == "date_time" ~ "dt",
-    .x == 'gage' ~ paste0(sub('.*\\_', '', table_type), "00065"),
+    .x == 'gage' ~ paste0(sub('.*\\_', '', table_type), "_00065"),
     TRUE ~ .x)
   )},
 error=function(cond) {
@@ -69,8 +72,8 @@ error=function(cond) {
 }),
 
 'airtemp' = tryCatch({data %>% dplyr::rename_with(~dplyr::case_when(
-  .x == grepl("air_temperature", x) ~ paste0(sub('.*\\_', '', table_type), "00021"),
-  .x == grepl("air_temp", x) ~ paste0(sub('.*\\_', '', table_type), "00021"),
+  grepl("air_temperature", .x) ~ paste0(sub('.*\\_', '', table_type), "_00021"),
+  grepl("air_temp", .x) ~ paste0(sub('.*\\_', '', table_type), "_00021"),
   .x == "dates" ~ "date",
   .x == "date_time" ~ "dt",
   TRUE ~ .x)
@@ -81,8 +84,7 @@ error=function(cond) {
 }),
 
 'wtemp' = tryCatch({data %>% dplyr::rename_with(~dplyr::case_when(
-  .x == grepl("h2o_temperature", .x) ~ paste0(sub('.*\\_', '', table_type), "00011"),
-  .x == grepl("h2o_temp", .x) ~ paste0(sub('.*\\_', '', table_type), "00011"),
+  .x == 'h2o_temperature_f' ~ paste0(sub('.*\\_', '', table_type), "_00011"),
   .x == "dates" ~ "date",
   .x == "date_time" ~ "dt",
   TRUE ~ .x)
@@ -93,25 +95,15 @@ error=function(cond) {
 })
  )
 
- param_cd <- switch(
-   gsub('_.*', '', table_type),
-   'flow' = '00060',
-   'tss' = '00530',
-   'precip' = '00045',
-   'stage' = '00065',
-   'airtemp' = '00021',
-   'wtemp' = '00011'
-
- )
 
  if(is.list(change_col_names)){
 
   col_name_logic <-
      switch(
        sub('.*\\_', '', table_type),
-       'dv' = all(names(change_col_names) %in% c(paste0('dv_', param_cd), 'date')),
-       'iv' = all(names(change_col_names) %in% c(paste0('iv_', param_cd), 'dt')),
-       'obs' = all(names(change_col_names) %in% c(paste0('obs_', param_cd), 'date', 'time'))
+       'dv' = all(names(change_col_names) %in% c(paste0('dv_', param_cd(table_type)), 'date')),
+       'iv' = all(names(change_col_names) %in% c(paste0('iv_', param_cd(table_type)), 'dt')),
+       'obs' = all(names(change_col_names) %in% c(paste0('obs_', param_cd(table_type)), 'date', 'time'))
      )
 
  } else {
@@ -141,4 +133,21 @@ error_catching_input <- function(data, table_type) {
       'obs' = length(data) %in% c(2,3),
     )
 
+}
+
+#' @param table_type A character.
+#'
+#' @return A character of param code.
+#' @noRd
+param_cd <- function(table_type) {
+  switch(
+    gsub('_.*', '', table_type),
+    'flow' = '00060',
+    'tss' = '00530',
+    'precip' = '00045',
+    'stage' = '00065',
+    'airtemp' = '00021',
+    'wtemp' = '00011'
+
+  )
 }

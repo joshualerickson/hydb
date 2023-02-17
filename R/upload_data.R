@@ -14,14 +14,14 @@ app_ui_hydb <- function(request) {
   tagList(
     shinydashboard::dashboardPage(
 
-      header = shinydashboard::dashboardHeader(title = "Hydroclimatic Data"),
+      header = shinydashboard::dashboardHeader(title = "Hydrologic Database (hydb)"),
 
     # Leave this function for adding external resources
     golem_add_external_resources(),
 
       sidebar = shinydashboard::dashboardSidebar(
 
-        dashboardthemes::shinyDashboardThemes(theme = "blue_gradient"),
+        dashboardthemes::shinyDashboardThemes(theme = "poor_mans_flatly"),
 
         shinydashboard::sidebarMenu(id = 'menu1',
 
@@ -35,7 +35,18 @@ app_ui_hydb <- function(request) {
                           tabName = "upload",
                           icon = icon("tint")),
         conditionalPanel(condition = "input.menu1 === 'upload'",
-                         fileInput("file", "Please Select File",
+                         tags$style(
+          "
+          .control-label {
+
+          color: white;
+          }
+
+          .progress-bar {
+          background-image: linear-gradient(to right, red , yellow) !important;
+          background-size: auto !important;
+          }"),
+                                   fileInput("file", "Please Select File",
                                    accept = c('.xlsx', '.csv', '.txt', '.tsv'))
 
         ))),
@@ -43,7 +54,12 @@ app_ui_hydb <- function(request) {
         shinydashboard::tabItems(
                           shinydashboard::tabItem(
                           tabName = "get_started",
-                          tags$style(type = 'text/css', '#welcome {height: calc(100vh - 80px) !important;}'),htmltools::tags$iframe(src = "hydb_welcome.html", width = '100%',  height = 1000,  style = "border:none;")
+                          tags$style(type = 'text/css', '#welcome {height: calc(100vh - 80px) !important;}'),
+                          htmltools::tags$iframe(seamless = 'seamless',
+                                                 src = "www/hydb_welcome.html",
+                                                 width = '100%',
+                                                 height = 1000,
+                                                 style = "border:none;")
                         ),
         shinydashboard::tabItem(
 
@@ -103,18 +119,6 @@ app_server_hydb <- function( input, output, session ) {
 
   callModule(hydbMod, "hydb_ui_1", values = values, file_path = reactive(input$file))
 
-  observeEvent(input$tabchart, once = TRUE, {
-
-    shiny::showModal(modalDialog(title = "Welcome new user",
-                                  easyClose = FALSE,
-                                  footer = actionButton('done_welcome_upload','Done'),
-                                  tags$style(
-                                    type = 'text/css',
-                                    '.modal-dialog {
-    width: fit-content !important;
-    margin: 100px;}'
-                                  )))})
-
   values$table_selection <- reactive(input$db_table)
 
   observeEvent(input$begin_upload,{
@@ -140,8 +144,6 @@ app_server_hydb <- function( input, output, session ) {
                                 )
 
     } else if (!error_catching_param_names(values$selected_df(), values$table_selection())[[1]]) {
-
-
 
       statement <- switch(sub('.*\\_', '', values$table_selection()),
                           'dv' = paste0('"',values$table_selection(),'"',
@@ -169,10 +171,12 @@ app_server_hydb <- function( input, output, session ) {
         '.modal-dialog {
     width: fit-content !important;}'
       ),
-    shinydashboard::box(width = 12,
-                        DT::dataTableOutput('selected_df_dt'))
-
-    ))
+    fluidPage(
+      fluidRow(
+      column(width = 12,
+                        DT::dataTableOutput('selected_df_dt'),
+                        shiny::plotOutput('data_graph', width = "800px"))
+    ))))
 }
   })
 
@@ -187,7 +191,6 @@ app_server_hydb <- function( input, output, session ) {
                     dplyr::pull(sid)
                                     })
 
-  print(values$station_sid())
   quality_controlled_df <-
 
     if(sub('.*\\_', '', values$table_selection()) %in% 'obs'){
@@ -222,8 +225,30 @@ app_server_hydb <- function( input, output, session ) {
                         'obs' = quality_controlled_df %>%
                           dplyr::mutate(date = lubridate::as_date(date))))
 
-  DT::datatable(values$selected_df2())
+  suppressWarnings(DT::datatable(values$selected_df2()))
 
+
+  })
+
+  output$data_graph <- renderPlot({
+
+    switch(sub('.*\\_', '', values$table_selection()),
+
+           'dv' = values$selected_df2() %>%
+                   ggplot2::ggplot(ggplot2::aes(.data$date, .data[[paste0('dv_', param_cd(values$table_selection()))]])) +
+                   ggplot2::geom_line()+
+                   ggplot2::theme_bw(base_size = 14),
+
+           'iv' = values$selected_df2() %>%
+                   ggplot2::ggplot(ggplot2::aes(.data$dt, .data[[paste0('iv_', param_cd(values$table_selection()))]])) +
+                   ggplot2::geom_line()+
+                   ggplot2::theme_bw(base_size = 14),
+
+           'obs' = values$selected_df2() %>%
+                   ggplot2::ggplot(ggplot2::aes(.data$date, .data[[paste0('obs_', param_cd(values$table_selection()))]])) +
+                   ggplot2::geom_line() +
+                   ggplot2::theme_bw(base_size = 14)
+    )
 
   })
 
@@ -245,9 +270,7 @@ app_server_hydb <- function( input, output, session ) {
                                                    dplyr::filter(date %in% values$selected_df2()$date,
                                                                  time %in% values$selected_df2()$time),values$selected_df2(), check.attributes = F))
 
-    print(values$station_sid())
-    print(fetch_hydb(values$table_selection(), values$station_sid()) %>%
-            dplyr::filter(date %in% values$selected_df2()$date))
+
     if(length(values$identical) == 1){
 
       shinyWidgets::show_alert("Looks like you've added this dataset before...",
@@ -280,16 +303,21 @@ app_server_hydb <- function( input, output, session ) {
 
 
 
-    dbAppendTable(values$mydb, values$table_selection(), values$selected_df2())
+    DBI::dbAppendTable(values$mydb, values$table_selection(), values$selected_df2())
 
 
     removeModal()
 
   })
 
+  onStop(function(){
+observe(
+   DBI::dbDisconnect(values$mydb)
+)
+  })
   sessionEnded <- session$onSessionEnded(function() {
 
-    DBI::dbDisconnect(values$mydb)
+    stopApp()
 
   })
 
@@ -314,9 +342,6 @@ golem_add_external_resources <- function(){
     golem::bundle_resources(
       path = app_sys('app/www'),
       app_title = 'hydb'
-    ),
-    shinyjs::useShinyjs()
-    # Add here other external resources
-    # for example, you can add shinyalert::useShinyalert()
+    )
   )
 }
