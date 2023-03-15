@@ -4,7 +4,7 @@
 \alias{hydbMod}
 \title{Shiny Module Server for DT uploading}
 \usage{
-hydbMod(input, output, session, values, file_path)
+hydbMod(input, output, session, values, file_path, sheet)
 }
 \arguments{
 \item{input}{Shiny server function input}
@@ -14,6 +14,8 @@ hydbMod(input, output, session, values, file_path)
 \item{session}{Shiny server function session}
 
 \item{values}{A reactive Values list to pass}
+
+\item{sheet}{A reactive Values list to pass}
 }
 \value{
 server function for Shiny module

@@ -9,6 +9,7 @@
 #'     DO NOT REMOVE.
 #' @import shiny
 #' @importFrom shinydashboard dashboardSidebar
+#' @importFrom dplyr '%>%'
 #' @noRd
 app_ui_hydb <- function(request) {
   tagList(
@@ -46,8 +47,10 @@ app_ui_hydb <- function(request) {
           background-image: linear-gradient(to right, red , yellow) !important;
           background-size: auto !important;
           }"),
-                                   fileInput("file", "Please Select File",
-                                   accept = c('.xlsx', '.csv', '.txt', '.tsv'))
+
+          fileInput("file", "Please Select File",
+          accept = c('.xlsx', '.csv', '.txt', '.tsv')),
+          selectInput(inputId = "sheets", label = "Select sheet", choices = NULL, selected = NULL)
 
         ))),
       body = shinydashboard::dashboardBody(
@@ -68,14 +71,21 @@ app_ui_hydb <- function(request) {
              margin-left: -10px !important;
              height: 40px !important;
              border-color: black;
-             }
+                             }
+
+             .modal-dialog{ width:350px}
+
+             .modal-body{ min-height:25px}
+
+             .selectize-dropdown {
+              bottom: 100% !important;
+              top: auto !important;
+                                  }
              ")),
-          tags$head(tags$style(".modal-dialog{ width:350px}")),
-          tags$head(tags$style(".modal-body{ min-height:25px}")),
           tabName = 'upload',
           fluidRow(shinydashboard::tabBox(width = 12, id = 'tabchart',
                                   tabPanel(
-                               title = 'Upload Data',
+                               title = HTML('&#8601 Bring in File'),
                                syle = 'height:92vh',
                       hydbModUI("hydb_ui_1"),
                       uiOutput('select_table'),
@@ -96,6 +106,7 @@ app_ui_hydb <- function(request) {
 #' @param input,output,session Internal parameters for {shiny}.
 #'     DO NOT REMOVE.
 #' @import shiny
+#' @importFrom dplyr '%>%'
 #' @noRd
 app_server_hydb <- function( input, output, session ) {
   # List the first level callModules here
@@ -117,7 +128,56 @@ app_server_hydb <- function( input, output, session ) {
     selected=""
   ))
 
-  callModule(hydbMod, "hydb_ui_1", values = values, file_path = reactive(input$file))
+  # output$sheets <- shiny::renderUI(
+  #
+  #   selectInput(inputId = "sheets", label = "Select sheet", choices =
+  #
+  #                 if(sub('.*\\.','', input$file$name) %in% c('xls', 'xlsx')){
+  #
+  #                  readxl::excel_sheets(input$file$datapath)
+  #
+  #                 } else {
+  #
+  #                  "Doesn't have sheets"
+  #
+  #                 }, selected =   if(sub('.*\\.','', input$file$name) %in% c('xls', 'xlsx')){
+  #
+  #                   readxl::excel_sheets(input$file$datapath)[[1]]
+  #
+  #                 } else {
+  #
+  #                   "Doesn't have sheets"
+  #
+  #                 })
+  # )
+
+
+observe({
+
+  if(sub('.*\\.','', values$file_path()$name) %in% c('xls', 'xlsx')){
+
+    sheet_names <- readxl::excel_sheets(values$file_path()$datapath)
+
+  } else {
+
+    sheet_names <- "Doesn't have sheets"
+
+  }
+
+    shiny::updateSelectInput(
+      inputId = "sheets",
+      choices = sheet_names,
+      selected = sheet_names[[1]] # Choose first sheet as default
+    )
+
+  })  %>%
+    bindEvent(values$file_path())
+
+   values$sheet <- reactive(input$sheets)
+
+   values$file_path <- reactive(input$file)
+
+  callModule(hydbMod, "hydb_ui_1", values = values, file_path = values$file_path, sheet = values$sheet)
 
   values$table_selection <- reactive(input$db_table)
 
@@ -175,7 +235,8 @@ app_server_hydb <- function( input, output, session ) {
       fluidRow(
       column(width = 12,
                         DT::dataTableOutput('selected_df_dt'),
-                        shiny::plotOutput('data_graph', width = "800px"))
+                        plotly::plotlyOutput('data_graph', width = "800px") %>%
+                        shinycssloaders::withSpinner())
     ))))
 }
   })
@@ -230,24 +291,24 @@ app_server_hydb <- function( input, output, session ) {
 
   })
 
-  output$data_graph <- renderPlot({
+  output$data_graph <- plotly::renderPlotly({
 
     switch(sub('.*\\_', '', values$table_selection()),
 
-           'dv' = values$selected_df2() %>%
+           'dv' =  print(plotly::ggplotly(values$selected_df2() %>%
                    ggplot2::ggplot(ggplot2::aes(.data$date, .data[[paste0('dv_', param_cd(values$table_selection()))]])) +
                    ggplot2::geom_line()+
-                   ggplot2::theme_bw(base_size = 14),
+                   ggplot2::theme_bw(base_size = 14))),
 
-           'iv' = values$selected_df2() %>%
+           'iv' = print(plotly::ggplotly(values$selected_df2() %>%
                    ggplot2::ggplot(ggplot2::aes(.data$dt, .data[[paste0('iv_', param_cd(values$table_selection()))]])) +
                    ggplot2::geom_line()+
-                   ggplot2::theme_bw(base_size = 14),
+                   ggplot2::theme_bw(base_size = 14))),
 
-           'obs' = values$selected_df2() %>%
+           'obs' = print(plotly::ggplotly(values$selected_df2() %>%
                    ggplot2::ggplot(ggplot2::aes(.data$date, .data[[paste0('obs_', param_cd(values$table_selection()))]])) +
-                   ggplot2::geom_line() +
-                   ggplot2::theme_bw(base_size = 14)
+                   ggplot2::geom_point() +
+                   ggplot2::theme_bw(base_size = 14)))
     )
 
   })
