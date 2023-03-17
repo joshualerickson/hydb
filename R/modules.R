@@ -34,13 +34,19 @@ hydbMod <- function(input, output, session, values, file_path, sheet){
 
   observe({
 
-    req(nchar(sheet())>1)
+    req(file_path())
 
     inFile <- file_path()
 
-    df <-   switch (sub('.*\\.','', inFile$name),
-                    'xlsx' = readxl::read_xlsx(inFile$datapath, sheet = sheet()) %>%
+    file_type <- sub('.*\\.','', inFile$name)
+
+    sheet <- if(file_type %in% c('xls', 'xlsx')){if(!sheet() %in% readxl::excel_sheets(inFile$datapath)){1}else{sheet()}}
+
+    df <-   switch (file_type,
+                    'xlsx' = readxl::read_xlsx(inFile$datapath, sheet = sheet) %>%
                         janitor::clean_names(),
+                    'xls' = readxl::read_xls(inFile$datapath, sheet = sheet) %>%
+                      janitor::clean_names(),
                     'csv' = readr::read_csv(inFile$datapath) %>%
                       janitor::clean_names(),
                     'tsv' = readr::read_tsv(inFile$datapath) %>%
@@ -54,5 +60,43 @@ hydbMod <- function(input, output, session, values, file_path, sheet){
     values$selected_df <- suppressWarnings(reactive(df[,input$data_columns_selected, drop = FALSE]))
 
   })
+
+}
+
+#' Shiny Module UI for DT uploading
+#'
+#' @description A shiny Module to.
+#'
+#' @param id \code{character} id for the the Shiny namespace
+#' @param ... other arguments to \code{leafletOutput()}
+#'
+#' @importFrom shiny NS tagList reactiveValues observe
+#' @importFrom dplyr filter select mutate slice_max ungroup rename
+#' @return UI function for Shiny module
+#' @export
+#'
+graphingUI <- function(id, ...){
+  ns <- shiny::NS(id)
+  tagList(
+    shiny::plotOutput(ns('plot'))
+  )
+}
+
+#' Shiny Module Server for DT uploading
+#' @param input Shiny server function input
+#' @param output Shiny server function output
+#' @param session Shiny server function session
+#' @param values A reactive Values list to pass
+#' @param sheet A reactive Values list to pass
+#' @return server function for Shiny module
+#' @importFrom dplyr '%>%'
+#' @export
+#'
+graphingMod <- function(input, output, session){
+  ns <- session$ns
+
+  output$plot <- renderPlot(
+    plot(rnorm(100), rnorm(100, 1.2, 2.2))
+  )
 
 }

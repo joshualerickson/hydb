@@ -52,7 +52,12 @@ app_ui_hydb <- function(request) {
           accept = c('.xlsx', '.csv', '.txt', '.tsv')),
           selectInput(inputId = "sheets", label = "Select sheet", choices = NULL, selected = NULL)
 
-        ))),
+        ),
+        shinydashboard::menuItem(
+          "Explore hydb data",
+          tabName = "explore",
+          icon = icon("binoculars")))),
+    ### body
       body = shinydashboard::dashboardBody(
         shinydashboard::tabItems(
                           shinydashboard::tabItem(
@@ -94,7 +99,36 @@ app_ui_hydb <- function(request) {
           )
 
           ))
-        )))
+        ),
+        shinydashboard::tabItem(
+
+          tags$head(tags$style("
+                             .shiny-notification {
+             margin-left: -10px !important;
+             height: 40px !important;
+             border-color: black;
+                             }
+
+             .modal-dialog{ width:350px}
+
+             .modal-body{ min-height:25px}
+
+             .selectize-dropdown {
+              bottom: 100% !important;
+              top: auto !important;
+                                  }
+             ")),
+          tabName = 'explore',
+          fluidRow(shinydashboard::tabBox(width = 12, id = 'tabchart',
+                                          tabPanel(
+                                            title = HTML('&#8601 Choose a station'),
+                                            syle = 'height:92vh',
+                                            graphingUI('graphing_ui_1')
+                                          )
+
+          ))
+        )
+        ))
         )
 )
 }
@@ -128,40 +162,16 @@ app_server_hydb <- function( input, output, session ) {
     selected=""
   ))
 
-  # output$sheets <- shiny::renderUI(
-  #
-  #   selectInput(inputId = "sheets", label = "Select sheet", choices =
-  #
-  #                 if(sub('.*\\.','', input$file$name) %in% c('xls', 'xlsx')){
-  #
-  #                  readxl::excel_sheets(input$file$datapath)
-  #
-  #                 } else {
-  #
-  #                  "Doesn't have sheets"
-  #
-  #                 }, selected =   if(sub('.*\\.','', input$file$name) %in% c('xls', 'xlsx')){
-  #
-  #                   readxl::excel_sheets(input$file$datapath)[[1]]
-  #
-  #                 } else {
-  #
-  #                   "Doesn't have sheets"
-  #
-  #                 })
-  # )
-
 
 observe({
 
-  if(sub('.*\\.','', values$file_path()$name) %in% c('xls', 'xlsx')){
+  if(sub('.*\\.','', values$file_path()$name) %in% c('xls', 'xlsx')) {
 
     sheet_names <- readxl::excel_sheets(values$file_path()$datapath)
 
   } else {
 
     sheet_names <- "Doesn't have sheets"
-
   }
 
     shiny::updateSelectInput(
@@ -170,7 +180,7 @@ observe({
       selected = sheet_names[[1]] # Choose first sheet as default
     )
 
-  })  %>%
+  }) %>%
     bindEvent(values$file_path())
 
    values$sheet <- reactive(input$sheets)
@@ -321,7 +331,11 @@ observe({
 
   observeEvent(input$done_begin_upload,{
 
-
+    shinybusy::show_modal_spinner(
+      spin = "cube-grid",
+      color = "firebrick",
+      text = "Please wait..."
+    )
     values$identical <- switch(sub('.*\\_', '', values$table_selection()),
                                'dv' = all.equal(fetch_hydb(values$table_selection(), values$station_sid()) %>%
                                                   dplyr::filter(date %in% values$selected_df2()$date),values$selected_df2(), check.attributes = F),
@@ -339,6 +353,7 @@ observe({
                                type = 'warning'
       )
 
+    shinybusy::remove_modal_spinner()
     } else {
 
   showModal(modalDialog(
@@ -370,6 +385,11 @@ observe({
     removeModal()
 
   })
+
+
+
+  callModule(graphingMod, "graphing_ui_1")
+
 
   onStop(function(){
 observe(
