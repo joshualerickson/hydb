@@ -20,6 +20,12 @@ Imports:
     shinybusy,
     htmltools,
     DT,
+    plotly,
     golem,
     gwavr,
-    config
+    config,
+    readr,
+    readxl,
+    shinyWidgets,
+    janitor,
+    ggplot2
