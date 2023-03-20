@@ -4,14 +4,14 @@
 \alias{fetch_hydb}
 \title{Fetch Data from Hydrological Database.}
 \usage{
-fetch_hydb(table, sid = NULL, network = TRUE)
+fetch_hydb(table, sid = NULL, network = NULL)
 }
 \arguments{
 \item{table}{A character vector of table names, e.g. 'station_metadata', 'flow_dv', etc.}
 
 \item{sid}{A character vector of station ids. NULL (default).}
 
-\item{network}{logical. Whether to connect via the network or server. TRUE (default).}
+\item{network}{NULL. Used in shiny application.}
 }
 \value{
 A data.frame

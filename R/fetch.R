@@ -2,7 +2,7 @@
 #'
 #' @param table A character vector of table names, e.g. 'station_metadata', 'flow_dv', etc.
 #' @param sid A character vector of station ids. NULL (default).
-#' @param network logical. Whether to connect via the network or server. TRUE (default).
+#' @param network NULL. Used in shiny application.
 #' @importFrom dplyr tbl
 #'
 #' @return A data.frame
@@ -10,11 +10,15 @@
 #'
 fetch_hydb <- function(table,
                        sid = NULL,
-                       network = TRUE) {
+                       network = NULL) {
 
 
 
-  if(network){
+  if(!is.null(network)){
+
+  mydb <- network
+
+  } else {
 
   path <- 'T:/FS/NFS/Kootenai/Program/2500Watershed/GIS/SO/hydb'
 

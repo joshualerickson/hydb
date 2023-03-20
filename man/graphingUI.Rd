@@ -2,7 +2,7 @@
 % Please edit documentation in R/modules.R
 \name{graphingUI}
 \alias{graphingUI}
-\title{Shiny Module UI for DT uploading}
+\title{Shiny Module UI for exploring database}
 \usage{
 graphingUI(id, ...)
 }

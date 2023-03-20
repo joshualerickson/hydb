@@ -63,7 +63,7 @@ hydbMod <- function(input, output, session, values, file_path, sheet){
 
 }
 
-#' Shiny Module UI for DT uploading
+#' Shiny Module UI for exploring database
 #'
 #' @description A shiny Module to.
 #'
@@ -78,25 +78,65 @@ hydbMod <- function(input, output, session, values, file_path, sheet){
 graphingUI <- function(id, ...){
   ns <- shiny::NS(id)
   tagList(
-    shiny::plotOutput(ns('plot'))
+    plotly::plotlyOutput(ns('plot')) %>% shinycssloaders::withSpinner(color = '#18BC9C')
   )
 }
 
-#' Shiny Module Server for DT uploading
+#' Shiny Module Server for exploring database
 #' @param input Shiny server function input
 #' @param output Shiny server function output
 #' @param session Shiny server function session
 #' @param values A reactive Values list to pass
-#' @param sheet A reactive Values list to pass
 #' @return server function for Shiny module
 #' @importFrom dplyr '%>%'
 #' @export
 #'
-graphingMod <- function(input, output, session){
+graphingMod <- function(input, output, session, values){
   ns <- session$ns
 
-  output$plot <- renderPlot(
-    plot(rnorm(100), rnorm(100, 1.2, 2.2))
+  output$plot <- plotly::renderPlotly({
+
+  validate(need(!values$sid_graph() %in% '', "Need to select a Station(s)"))
+
+
+  validate(need(!values$db_table_graph() %in% '', "Need to select a Table"))
+
+
+  values$station_sid_graphing <- reactive({
+    values$md %>%
+      dplyr::filter(station_nm %in% values$sid_graph()) %>%
+      dplyr::pull(sid)
+  })
+
+  df <- fetch_hydb(values$db_table_graph(), sid = values$station_sid_graphing())
+
+  df <- df %>% dplyr::left_join(values$md, by = 'sid')
+
+  switch(sub('.*\\_', '', values$db_table_graph()),
+
+         'dv' =  print(plotly::ggplotly(df %>%
+                                          ggplot2::ggplot(ggplot2::aes(.data$date, .data[[paste0('dv_', param_cd(values$db_table_graph()))]])) +
+                                          ggplot2::geom_line(ggplot2::aes(color = station_nm))+
+                                          ggplot2::theme_bw(base_size = 14) +
+                                          ggplot2::labs(color = 'Station Name') +
+                                          ggplot2::facet_wrap(~station_nm, scales = 'free'))),
+
+         'iv' = print(plotly::ggplotly(df %>%
+                                         ggplot2::ggplot(ggplot2::aes(.data$dt, .data[[paste0('iv_', param_cd(values$db_table_graph()))]])) +
+                                         ggplot2::geom_line(ggplot2::aes(color = station_nm))+
+                                         ggplot2::theme_bw(base_size = 14) +
+                                         ggplot2::labs(color = 'Station Name') +
+                                         ggplot2::facet_wrap(~station_nm, scales = 'free'))),
+
+         'obs' = print(plotly::ggplotly(df %>%
+                                          ggplot2::ggplot(ggplot2::aes(.data$date, .data[[paste0('obs_', param_cd(values$db_table_graph()))]])) +
+                                          ggplot2::geom_point(ggplot2::aes(color = station_nm)) +
+                                          ggplot2::theme_bw(base_size = 14)+
+                                          ggplot2::labs(color = 'Station Name') +
+                                          ggplot2::facet_wrap(~station_nm, scales = 'free')))
   )
+
+
+  })
 
 }

@@ -40,7 +40,8 @@ app_ui_hydb <- function(request) {
           "
           .control-label {
 
-          color: white;
+          color: #18BC9C;
+          background: rgba(51, 170, 51,  0);
           }
 
           .progress-bar {
@@ -49,15 +50,21 @@ app_ui_hydb <- function(request) {
           }"),
 
           fileInput("file", "Please Select File",
-          accept = c('.xlsx', '.csv', '.txt', '.tsv')),
+          accept = c('.xlsx','.xls', '.csv', '.txt', '.tsv')),
           selectInput(inputId = "sheets", label = "Select sheet", choices = NULL, selected = NULL)
 
         ),
         shinydashboard::menuItem(
           "Explore hydb data",
           tabName = "explore",
+          icon = icon("binoculars")),
+        shinydashboard::menuItem(
+          "USGS Sites",
+          tabName = "usgs",
           icon = icon("binoculars")))),
-    ### body
+
+      ### body
+
       body = shinydashboard::dashboardBody(
         shinydashboard::tabItems(
                           shinydashboard::tabItem(
@@ -119,11 +126,43 @@ app_ui_hydb <- function(request) {
                                   }
              ")),
           tabName = 'explore',
-          fluidRow(shinydashboard::tabBox(width = 12, id = 'tabchart',
+          fluidRow(shinydashboard::tabBox(width = 12, id = 'graphing',
                                           tabPanel(
                                             title = HTML('&#8601 Choose a station'),
                                             syle = 'height:92vh',
-                                            graphingUI('graphing_ui_1')
+                                            graphingUI('graphing_ui_1'),
+                                            uiOutput('select_table_graphing'),
+                                            uiOutput('sid_graphing')
+
+                                          )
+
+          ))
+        ),
+        shinydashboard::tabItem(
+
+          tags$head(tags$style("
+                             .shiny-notification {
+             margin-left: -10px !important;
+             height: 40px !important;
+             border-color: black;
+                             }
+
+             .modal-dialog{ width:350px}
+
+             .modal-body{ min-height:25px}
+
+             .selectize-dropdown {
+              bottom: 100% !important;
+              top: auto !important;
+                                  }
+             ")),
+          tabName = 'usgs',
+          fluidRow(shinydashboard::tabBox(width = 12, id = 'usgs_inst',
+                                          tabPanel(
+                                            title = HTML('&#8601 Choose a station'),
+                                            syle = 'height:92vh',
+                                            gwavr::usgsinstModUI('usgsiv-ui')
+
                                           )
 
           ))
@@ -146,9 +185,20 @@ app_server_hydb <- function( input, output, session ) {
   # List the first level callModules here
   values <- reactiveValues()
 
+
+  shinybusy::show_modal_spinner(
+    spin = "orbit",
+    color = "#18BC9C",
+    text = HTML("Loading hydb database from T:drive <br> Might take a few seconds...")
+  )
+
   path <- 'T:/FS/NFS/Kootenai/Program/2500Watershed/GIS/SO/hydb'
 
   values$mydb <- DBI::dbConnect(RSQLite::SQLite(), paste0(path,"/hydb.sqlite"))
+
+  values$md <- fetch_hydb('metadata')
+
+  shinybusy::remove_modal_spinner()
 
   output$select_table <- shiny::renderUI(shiny::selectInput('db_table',
                      label = 'Select a Database Table to Upload into.',
@@ -163,7 +213,26 @@ app_server_hydb <- function( input, output, session ) {
   ))
 
 
-observe({
+
+  output$select_table_graphing <- shiny::renderUI(shiny::selectInput('db_table_graphing',
+                                                            label = 'Select a Database Table.',
+                                                            selected = '',
+                                                            choices = c('', DBI::dbListTables(values$mydb))))
+
+
+  output$sid_graphing <- shiny::renderUI(shiny::selectInput(
+    'sid_graphing',
+    label = "Station ID",
+    choices = c('',fetch_hydb('metadata')$station_nm),
+    selected="",
+    multiple = TRUE
+  ))
+
+  values$sid_graph <- reactive(input$sid_graphing)
+
+  values$db_table_graph <- reactive(input$db_table_graphing)
+
+  observe({
 
   if(sub('.*\\.','', values$file_path()$name) %in% c('xls', 'xlsx')) {
 
@@ -181,11 +250,12 @@ observe({
     )
 
   }) %>%
-    bindEvent(values$file_path())
 
-   values$sheet <- reactive(input$sheets)
+  bindEvent(values$file_path())
 
-   values$file_path <- reactive(input$file)
+  values$sheet <- reactive(input$sheets)
+
+  values$file_path <- reactive(input$file)
 
   callModule(hydbMod, "hydb_ui_1", values = values, file_path = values$file_path, sheet = values$sheet)
 
@@ -254,86 +324,86 @@ observe({
 
 
 
-  output$selected_df_dt <- DT::renderDataTable({
+    output$selected_df_dt <- DT::renderDataTable({
 
-  values$station_sid <- reactive({
-                    fetch_hydb('metadata') %>%
-                    dplyr::filter(station_nm %in% input$sid) %>%
-                    dplyr::pull(sid)
-                                    })
+    values$station_sid <- reactive({
+                      fetch_hydb('metadata') %>%
+                      dplyr::filter(station_nm %in% input$sid) %>%
+                      dplyr::pull(sid)
+                                      })
 
-  quality_controlled_df <-
+    quality_controlled_df <-
 
-    if(sub('.*\\_', '', values$table_selection()) %in% 'obs'){
+      if(sub('.*\\_', '', values$table_selection()) %in% 'obs'){
 
-      if(any(names(error_catching_param_names(values$selected_df(), values$table_selection())[[2]]) %in% 'time')){
+        if(any(names(error_catching_param_names(values$selected_df(), values$table_selection())[[2]]) %in% 'time')){
 
-      error_catching_param_names(values$selected_df(), values$table_selection())[[2]] %>%
-        dplyr::mutate(sid = values$station_sid()) %>%
-          na.omit()
+        error_catching_param_names(values$selected_df(), values$table_selection())[[2]] %>%
+          dplyr::mutate(sid = values$station_sid()) %>%
+            na.omit()
+
+        } else {
+
+          error_catching_param_names(values$selected_df(), values$table_selection())[[2]] %>%
+            dplyr::mutate(sid = values$station_sid(),
+                          time = NA_real_)
+
+        }
 
       } else {
 
         error_catching_param_names(values$selected_df(), values$table_selection())[[2]] %>%
-          dplyr::mutate(sid = values$station_sid(),
-                        time = NA_real_)
+                             dplyr::mutate(sid = values$station_sid()) %>%
+                             na.omit()
 
       }
 
-    } else {
+        values$selected_df2 <- reactive(switch(sub('.*\\_', '', values$table_selection()),
+                              'dv' = quality_controlled_df %>%
+                                dplyr::mutate(date = lubridate::as_date(date)),
+                              'iv' = quality_controlled_df %>%
+                                dplyr::mutate(dt = lubridate::as_datetime(dt)),
+                              'obs' = quality_controlled_df %>%
+                                dplyr::mutate(date = lubridate::as_date(date))))
 
-      error_catching_param_names(values$selected_df(), values$table_selection())[[2]] %>%
-                           dplyr::mutate(sid = values$station_sid()) %>%
-                           na.omit()
-
-    }
-
-  values$selected_df2 <- reactive(switch(sub('.*\\_', '', values$table_selection()),
-                        'dv' = quality_controlled_df %>%
-                          dplyr::mutate(date = lubridate::as_date(date)),
-                        'iv' = quality_controlled_df %>%
-                          dplyr::mutate(dt = lubridate::as_datetime(dt)),
-                        'obs' = quality_controlled_df %>%
-                          dplyr::mutate(date = lubridate::as_date(date))))
-
-  suppressWarnings(DT::datatable(values$selected_df2()))
+        suppressWarnings(DT::datatable(values$selected_df2()))
 
 
-  })
+    })
 
-  output$data_graph <- plotly::renderPlotly({
+    output$data_graph <- plotly::renderPlotly({
 
-    switch(sub('.*\\_', '', values$table_selection()),
+      switch(sub('.*\\_', '', values$table_selection()),
 
-           'dv' =  print(plotly::ggplotly(values$selected_df2() %>%
-                   ggplot2::ggplot(ggplot2::aes(.data$date, .data[[paste0('dv_', param_cd(values$table_selection()))]])) +
-                   ggplot2::geom_line()+
-                   ggplot2::theme_bw(base_size = 14))),
+             'dv' =  print(plotly::ggplotly(values$selected_df2() %>%
+                     ggplot2::ggplot(ggplot2::aes(.data$date, .data[[paste0('dv_', param_cd(values$table_selection()))]])) +
+                     ggplot2::geom_line()+
+                     ggplot2::theme_bw(base_size = 14))),
 
-           'iv' = print(plotly::ggplotly(values$selected_df2() %>%
-                   ggplot2::ggplot(ggplot2::aes(.data$dt, .data[[paste0('iv_', param_cd(values$table_selection()))]])) +
-                   ggplot2::geom_line()+
-                   ggplot2::theme_bw(base_size = 14))),
+             'iv' = print(plotly::ggplotly(values$selected_df2() %>%
+                     ggplot2::ggplot(ggplot2::aes(.data$dt, .data[[paste0('iv_', param_cd(values$table_selection()))]])) +
+                     ggplot2::geom_line()+
+                     ggplot2::theme_bw(base_size = 14))),
 
-           'obs' = print(plotly::ggplotly(values$selected_df2() %>%
-                   ggplot2::ggplot(ggplot2::aes(.data$date, .data[[paste0('obs_', param_cd(values$table_selection()))]])) +
-                   ggplot2::geom_point() +
-                   ggplot2::theme_bw(base_size = 14)))
-    )
+             'obs' = print(plotly::ggplotly(values$selected_df2() %>%
+                     ggplot2::ggplot(ggplot2::aes(.data$date, .data[[paste0('obs_', param_cd(values$table_selection()))]])) +
+                     ggplot2::geom_point() +
+                     ggplot2::theme_bw(base_size = 14)))
+      )
 
-  })
+    })
 
-  observeEvent(input$done_welcome_upload, {
-    removeModal()
+    observeEvent(input$done_welcome_upload, {
+      removeModal()
 
-  })
+    })
 
 
-  observeEvent(input$done_begin_upload,{
+    observeEvent(input$done_begin_upload,{
 
     shinybusy::show_modal_spinner(
-      spin = "cube-grid",
-      color = "firebrick",
+      spin = "orbit",
+      color = "#18BC9C",
       text = "Please wait..."
     )
     values$identical <- switch(sub('.*\\_', '', values$table_selection()),
@@ -354,9 +424,10 @@ observe({
       )
 
     shinybusy::remove_modal_spinner()
+
     } else {
 
-  showModal(modalDialog(
+    showModal(modalDialog(
     title = "Final Chance to Bail",
       footer = tagList(
         modalButton('Cancel'),
@@ -388,14 +459,24 @@ observe({
 
 
 
-  callModule(graphingMod, "graphing_ui_1")
+  callModule(graphingMod, "graphing_ui_1", values = values)
 
+  observeEvent(input$usgs_inst, {
+  crud_mod <- reactive(shiny::callModule(
+    gwavr::usgsinstMod,
+    'usgsiv-ui',
+    values = values
+  ))
+
+  observe({crud_mod()})
+  })
 
   onStop(function(){
-observe(
-   DBI::dbDisconnect(values$mydb)
-)
+        observe(
+           DBI::dbDisconnect(values$mydb)
+        )
   })
+
   sessionEnded <- session$onSessionEnded(function() {
 
     stopApp()

@@ -2,9 +2,9 @@
 % Please edit documentation in R/modules.R
 \name{graphingMod}
 \alias{graphingMod}
-\title{Shiny Module Server for DT uploading}
+\title{Shiny Module Server for exploring database}
 \usage{
-graphingMod(input, output, session)
+graphingMod(input, output, session, values)
 }
 \arguments{
 \item{input}{Shiny server function input}
@@ -14,12 +14,10 @@ graphingMod(input, output, session)
 \item{session}{Shiny server function session}
 
 \item{values}{A reactive Values list to pass}
-
-\item{sheet}{A reactive Values list to pass}
 }
 \value{
 server function for Shiny module
 }
 \description{
-Shiny Module Server for DT uploading
+Shiny Module Server for exploring database
 }
