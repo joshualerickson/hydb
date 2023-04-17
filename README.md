@@ -24,18 +24,13 @@ You can install the development version of hydb from
 devtools::install_github("joshualerickson/hydb")
 ```
 
-## Goals
-
-The goal of the {hydb} package is to provide ways of organizing,
-testing, and sharing USDA-USFS hydrological data.
-
 ## About
 
 The hydrological database (hydb) was created to store hydrology data
 collected by USDA-USFS staff from sensors/devices (transducers, precip
 cans, ISCOs) and observations (discharge, total suspended sediment,
-precipitation) across Region 1. The “hydb” database can currently accept
-flow, precipitation and sediment data.
+precipitation) across Region 1. Currently the tables available are below
+(more to come).
 
 There are several ways to interact with the hydb database:
 
@@ -60,17 +55,34 @@ The API for the realizations is separated by an underscore `_` where the
 prefix is the realization `precip_` and the suffix is the collection
 type `_obs`, e.g. `precip_obs` would be a table in the database.
 
+``` r
+library(hydb)
+hydb_tables()
+#>  [1] "airtemp_dv"       "airtemp_iv"       "airtemp_obs"      "flow_dv"         
+#>  [5] "flow_iv"          "flow_obs"         "precip_dv"        "precip_iv"       
+#>  [9] "precip_obs"       "stage_dv"         "stage_iv"         "stage_obs"       
+#> [13] "station_metadata" "tss_dv"           "tss_iv"           "tss_obs"         
+#> [17] "wtemp_dv"         "wtemp_iv"         "wtemp_obs"
+```
+
 ## Data
 
 When interacting with the database there are some key things to know
-about the tables.
+about the tables. Each parameter has a code associated with it and
+follows the USGS naming conventions.
 
--   `precip_*` contains a continuous variable (`value`) of precipitation
+-   `precip_*` contains a continuous variable (`00045`) of precipitation
     in inches.  
--   `flow_*` contains a continuous variable (`value`) of discharge in
+-   `flow_*` contains a continuous variable (`00060`) of discharge in
     cubic feet/second (cfs).
--   `tss_*` contains a continuous variable (`value`) of total suspended
-    sediment (tss) in mg/l.
+-   `tss_*` contains a continuous variable (`00530`) of total suspended
+    sediment (tss) in mg/l.  
+-   `stage_*` contains a continuous variable (`00065`) of stage in
+    inches.  
+-   `wtemp_*` contains a continuous variable (`00011`) of water
+    temperature in Fahrenheit.  
+-   `airtemp_*` contains a continuous variable (`00021`) of air
+    temperature in Fahrenheit.
 
 In addition, the particular collection type has different definitions.
 
@@ -124,15 +136,15 @@ library(dplyr)
 meta_data <- fetch_hydb(table = 'metadata')
 
 head(meta_data)
-#> # A tibble: 6 × 7
-#>   station_nm  Long   Lat    COMID   sid forest   district
-#>   <chr>      <dbl> <dbl>    <dbl> <int> <chr>    <chr>   
-#> 1 Big        -115.  48.8 22878931     1 Kootenai Ksanka  
-#> 2 Brimstone  -115.  48.7 22879335     2 Kootenai Ksanka  
-#> 3 Deep       -115.  48.8 22879371     3 Kootenai Ksanka  
-#> 4 Dodge      -115.  48.9 22878889     4 Kootenai Ksanka  
-#> 5 Edna       -115.  48.7 22878673     5 Kootenai Ksanka  
-#> 6 Grave      -115.  48.8 22878787     6 Kootenai Ksanka
+#> # A tibble: 6 × 8
+#>   station_nm  Long   Lat COMID    sid         region          forest   district
+#>   <chr>      <dbl> <dbl> <chr>    <chr>       <chr>           <chr>    <chr>   
+#> 1 Big        -115.  48.8 22878931 01140175801 Northern Region Kootenai Ksanka  
+#> 2 Brimstone  -115.  48.7 22879335 01140151446 Northern Region Kootenai Ksanka  
+#> 3 Deep       -115.  48.8 22879371 01140123731 Northern Region Kootenai Ksanka  
+#> 4 Dodge      -115.  48.9 22878889 01140112173 Northern Region Kootenai Ksanka  
+#> 5 Edna       -115.  48.7 22878673 01140194694 Northern Region Kootenai Ksanka  
+#> 6 Grave      -115.  48.8 22878787 01140119690 Northern Region Kootenai Ksanka
 
 # now just get flow_dv sites on the Kootenai National Forest
 flow_kootenai_dv <- fetch_hydb(table = 'flow_dv',
@@ -141,26 +153,26 @@ flow_kootenai_dv <- fetch_hydb(table = 'flow_dv',
 
 head(flow_kootenai_dv)
 #> # A tibble: 6 × 3
-#>   dt                  value   sid
-#>   <dttm>              <dbl> <int>
-#> 1 2022-05-05 12:00:00 19.1     12
-#> 2 2022-05-06 12:00:00 22.3     12
-#> 3 2022-05-07 12:00:00 19.1     12
-#> 4 2022-05-08 12:00:00 14.1     12
-#> 5 2022-05-09 12:00:00 11.0     12
-#> 6 2022-05-10 12:00:00  8.92    12
+#>   date       dv_00060 sid        
+#>   <date>        <dbl> <chr>      
+#> 1 2022-05-05    19.1  01140129657
+#> 2 2022-05-06    22.3  01140129657
+#> 3 2022-05-07    19.1  01140129657
+#> 4 2022-05-08    14.1  01140129657
+#> 5 2022-05-09    11.0  01140129657
+#> 6 2022-05-10     8.92 01140129657
 
 library(ggplot2)
 #> Warning: package 'ggplot2' was built under R version 4.2.1
 
 flow_kootenai_dv %>% 
   left_join(meta_data, by = 'sid') %>% 
-  ggplot(aes(dt, value)) + 
+  ggplot(aes(date, dv_00060)) + 
   geom_line() + 
   facet_wrap(~station_nm, scales = 'free')
 ```
 
-<img src="man/figures/README-unnamed-chunk-3-1.png" width="75%" style="display: block; margin: auto;" />
+<img src="man/figures/README-unnamed-chunk-4-1.png" width="75%" style="display: block; margin: auto;" />
 
 **{DBI} & {RSQLite}**
 
@@ -177,15 +189,15 @@ mydb <- DBI::dbConnect(RSQLite::SQLite(), paste0(path,"/hydb.sqlite"))
 metadata <- dplyr::collect(tbl(mydb, 'station_metadata'))
 
 head(metadata)
-#> # A tibble: 6 × 7
-#>   station_nm  Long   Lat    COMID   sid forest   district
-#>   <chr>      <dbl> <dbl>    <dbl> <int> <chr>    <chr>   
-#> 1 Big        -115.  48.8 22878931     1 Kootenai Ksanka  
-#> 2 Brimstone  -115.  48.7 22879335     2 Kootenai Ksanka  
-#> 3 Deep       -115.  48.8 22879371     3 Kootenai Ksanka  
-#> 4 Dodge      -115.  48.9 22878889     4 Kootenai Ksanka  
-#> 5 Edna       -115.  48.7 22878673     5 Kootenai Ksanka  
-#> 6 Grave      -115.  48.8 22878787     6 Kootenai Ksanka
+#> # A tibble: 6 × 8
+#>   station_nm  Long   Lat COMID    sid         region          forest   district
+#>   <chr>      <dbl> <dbl> <chr>    <chr>       <chr>           <chr>    <chr>   
+#> 1 Big        -115.  48.8 22878931 01140175801 Northern Region Kootenai Ksanka  
+#> 2 Brimstone  -115.  48.7 22879335 01140151446 Northern Region Kootenai Ksanka  
+#> 3 Deep       -115.  48.8 22879371 01140123731 Northern Region Kootenai Ksanka  
+#> 4 Dodge      -115.  48.9 22878889 01140112173 Northern Region Kootenai Ksanka  
+#> 5 Edna       -115.  48.7 22878673 01140194694 Northern Region Kootenai Ksanka  
+#> 6 Grave      -115.  48.8 22878787 01140119690 Northern Region Kootenai Ksanka
 # now just get flow_dv sites on the Kootenai National Forest
     
 fetch_table = dplyr::collect(tbl(mydb, 'flow_dv'))               
@@ -195,14 +207,14 @@ flow_kootenai <- fetch_table %>%
 
 head(flow_kootenai)
 #> # A tibble: 6 × 3
-#>           dt value   sid
-#>        <dbl> <dbl> <int>
-#> 1 1651752000 19.1     12
-#> 2 1651838400 22.3     12
-#> 3 1651924800 19.1     12
-#> 4 1652011200 14.1     12
-#> 5 1652097600 11.0     12
-#> 6 1652184000  8.92    12
+#>    date dv_00060 sid        
+#>   <dbl>    <dbl> <chr>      
+#> 1 19117    19.1  01140129657
+#> 2 19118    22.3  01140129657
+#> 3 19119    19.1  01140129657
+#> 4 19120    14.1  01140129657
+#> 5 19121    11.0  01140129657
+#> 6 19122     8.92 01140129657
 ```
 
 ## Contributing

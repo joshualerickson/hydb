@@ -23,6 +23,7 @@ hydbModUI <- function(id, ...){
 #' @param output Shiny server function output
 #' @param session Shiny server function session
 #' @param values A reactive Values list to pass
+#' @param file_path A reactive Values list to pass
 #' @param sheet A reactive Values list to pass
 #' @return server function for Shiny module
 #' @importFrom dplyr '%>%'

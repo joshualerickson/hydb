@@ -12,7 +12,10 @@
 #' @importFrom dplyr '%>%'
 #' @noRd
 app_ui_hydb <- function(request) {
+
   tagList(
+
+
     shinydashboard::dashboardPage(
 
       header = shinydashboard::dashboardHeader(title = "Hydrologic Database (hydb)"),
@@ -66,15 +69,17 @@ app_ui_hydb <- function(request) {
       ### body
 
       body = shinydashboard::dashboardBody(
+
+        # login section
+        shinyauthr::loginUI(id = "login"),
+
+        uiOutput('startup'),
+
         shinydashboard::tabItems(
                           shinydashboard::tabItem(
                           tabName = "get_started",
                           tags$style(type = 'text/css', '#welcome {height: calc(100vh - 80px) !important;}'),
-                          htmltools::tags$iframe(seamless = 'seamless',
-                                                 src = "www/hydb_welcome.html",
-                                                 width = '100%',
-                                                 height = 1000,
-                                                 style = "border:none;")
+                          uiOutput('html_welcome')
                         ),
         shinydashboard::tabItem(
 
@@ -182,10 +187,29 @@ app_ui_hydb <- function(request) {
 #' @importFrom dplyr '%>%'
 #' @noRd
 app_server_hydb <- function( input, output, session ) {
+
+  credentials <- shinyauthr::loginServer(
+    id = "login",
+    data = dplyr::tibble(user = 'usfs', password = 'waterwins'),
+    user_col = user,
+    pwd_col = password,
+    sodium_hashed = F
+  )
+
+  observe({
+    if(credentials()$user_auth) {
+      shinyjs::removeClass(selector = "body", class = "sidebar-collapse")
+    } else {
+      shinyjs::addClass(selector = "body", class = "sidebar-collapse")
+    }
+  })
+
   # List the first level callModules here
   values <- reactiveValues()
 
+  output$startup <- renderUI({
 
+    req(credentials()$user_auth)
   shinybusy::show_modal_spinner(
     spin = "orbit",
     color = "#18BC9C",
@@ -200,24 +224,44 @@ app_server_hydb <- function( input, output, session ) {
 
   shinybusy::remove_modal_spinner()
 
-  output$select_table <- shiny::renderUI(shiny::selectInput('db_table',
+  })
+
+  output$html_welcome <- renderUI({
+    req(credentials()$user_auth)
+    htmltools::tags$iframe(seamless = 'seamless',
+                         src = "www/hydb_welcome.html",
+                         width = '100%',
+                         height = 1000,
+                         style = "border:none;")
+  })
+
+  output$select_table <- shiny::renderUI({
+
+    req(credentials()$user_auth)
+                     shiny::selectInput('db_table',
                      label = 'Select a Database Table to Upload into.',
                      selected = '',
-                     choices = c('', DBI::dbListTables(values$mydb))))
+                     choices = c('', DBI::dbListTables(values$mydb)))})
 
-  output$sid <- shiny::renderUI(shiny::selectInput(
+  output$sid <- shiny::renderUI({
+
+    req(credentials()$user_auth)
+    shiny::selectInput(
     'sid',
     "Station ID",
     choices = c('',fetch_hydb('metadata')$station_nm),
     selected=""
-  ))
+  )
+    })
 
 
 
-  output$select_table_graphing <- shiny::renderUI(shiny::selectInput('db_table_graphing',
-                                                            label = 'Select a Database Table.',
-                                                            selected = '',
-                                                            choices = c('', DBI::dbListTables(values$mydb))))
+  output$select_table_graphing <- shiny::renderUI({
+    shiny::selectInput('db_table_graphing',
+      label = 'Select a Database Table.',
+      selected = '',
+      choices = c('', DBI::dbListTables(values$mydb)))
+    })
 
 
   output$sid_graphing <- shiny::renderUI(shiny::selectInput(
@@ -458,7 +502,6 @@ app_server_hydb <- function( input, output, session ) {
   })
 
 
-
   callModule(graphingMod, "graphing_ui_1", values = values)
 
   observeEvent(input$usgs_inst, {
@@ -470,6 +513,8 @@ app_server_hydb <- function( input, output, session ) {
 
   observe({crud_mod()})
   })
+
+
 
   onStop(function(){
         observe(

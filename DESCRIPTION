@@ -18,6 +18,8 @@ Imports:
     shinycssloaders,
     dashboardthemes,
     shinybusy,
+    shinyjs,
+    shinyauthr,
     htmltools,
     DT,
     plotly,

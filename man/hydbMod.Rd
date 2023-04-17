@@ -15,6 +15,8 @@ hydbMod(input, output, session, values, file_path, sheet)
 
 \item{values}{A reactive Values list to pass}
 
+\item{file_path}{A reactive Values list to pass}
+
 \item{sheet}{A reactive Values list to pass}
 }
 \value{

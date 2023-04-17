@@ -73,3 +73,28 @@ fetch_hydb <- function(table,
   return(fetch_table)
 
 }
+
+#' hydb Table List
+#'
+#' @param network  NULL. Used in shiny application.
+#'
+#' @return A list of tables in the hydb database.
+#' @export
+#'
+hydb_tables <- function(network = NULL) {
+
+  if(!is.null(network)){
+
+    mydb <- network
+
+  } else {
+
+    path <- 'T:/FS/NFS/Kootenai/Program/2500Watershed/GIS/SO/hydb'
+
+    mydb <- DBI::dbConnect(RSQLite::SQLite(), paste0(path,"/hydb.sqlite"))
+
+  }
+
+  DBI::dbListTables(mydb)
+
+}

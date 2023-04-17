@@ -31,13 +31,9 @@ You can install the development version of hydb from [GitHub](https://github.com
 devtools::install_github("joshualerickson/hydb")
 ```  
 
-## Goals  
-
-The goal of the {hydb} package is to provide ways of organizing, testing, and sharing USDA-USFS hydrological data.  
-
 ## About  
 
-The hydrological database (hydb) was created to store hydrology data collected by USDA-USFS staff from sensors/devices (transducers, precip cans, ISCOs) and observations (discharge, total suspended sediment, precipitation) across Region 1. The "hydb" database can currently accept flow, precipitation and sediment data.  
+The hydrological database (hydb) was created to store hydrology data collected by USDA-USFS staff from sensors/devices (transducers, precip cans, ISCOs) and observations (discharge, total suspended sediment, precipitation) across Region 1. Currently the tables available are below (more to come).  
 
 There are several ways to interact with the hydb database:
 
@@ -55,13 +51,23 @@ knitr::include_graphics("man/images/schema.png")
 
 The API for the realizations is separated by an underscore `_` where the prefix is the realization `precip_` and the suffix is the collection type `_obs`, e.g. `precip_obs` would be a table in the database.    
 
+
+```{r, fig.cap='Example of schema'}
+library(hydb)
+hydb_tables()
+```
+
+
 ## Data  
 
-When interacting with the database there are some key things to know about the tables. 
+When interacting with the database there are some key things to know about the tables. Each parameter has a code associated with it and follows the USGS naming conventions. 
 
-* `precip_*` contains a continuous variable (`value`) of precipitation in inches.  
-* `flow_*` contains a continuous variable (`value`) of discharge in cubic feet/second (cfs).
-* `tss_*` contains a continuous variable (`value`) of total suspended sediment (tss) in mg/l.  
+* `precip_*` contains a continuous variable (`00045`) of precipitation in inches.  
+* `flow_*` contains a continuous variable (`00060`) of discharge in cubic feet/second (cfs).
+* `tss_*` contains a continuous variable (`00530`) of total suspended sediment (tss) in mg/l.  
+* `stage_*` contains a continuous variable (`00065`) of stage in inches.  
+* `wtemp_*` contains a continuous variable (`00011`) of water temperature in Fahrenheit.  
+* `airtemp_*` contains a continuous variable (`00021`) of air temperature in Fahrenheit.  
 
 In addition, the particular collection type has different definitions.  
 
@@ -101,7 +107,7 @@ library(ggplot2)
 
 flow_kootenai_dv %>% 
   left_join(meta_data, by = 'sid') %>% 
-  ggplot(aes(dt, value)) + 
+  ggplot(aes(date, dv_00060)) + 
   geom_line() + 
   facet_wrap(~station_nm, scales = 'free')
 
