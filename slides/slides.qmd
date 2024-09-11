@@ -1,0 +1,147 @@
+---
+title: "hydb"
+format: 
+  revealjs:
+    css: 'extra.css'
+
+---
+
+
+##  Data Cycle
+
+<img src="slides_files/images/flow_chart.png">  
+
+## Database Design  
+
+<img src="slides_files/images/db_design.png">  
+
+##  
+
+<img src="slides_files/images/db.png">
+
+## Tables  
+
+<img src="slides_files/images/tables.png">
+
+## Relate  
+
+<img src="slides_files/images/relate.png">
+
+##   
+
+[How do I get my data in here?]{.center-text}  
+
+## Ingestion 
+
+Currently we're going to try a folder structure method in SharePoint.  
+<center>
+<img src="slides_files/images/folder.gif">
+</center>
+
+## Ingestion  
+
+Step 1: Station meta data.  
+
+. . . 
+
+Step 2: csv/xlsx file for station in SharePoint.  
+
+
+## Step 1  
+
+[Email, Teams, spreadsheet.]{.center-text}  
+
+##  
+
+<img src="slides_files/images/station_md.png">
+
+##  
+
+:::: {.columns}
+
+::: {.column width="40%"}
+
+<img src="slides_files/images/ben_email.png">
+:::
+
+::: {.column width="60%"}
+
+
+<img src="slides_files/images/basin_creek_site.png">
+:::
+
+::::
+
+
+## Step 2  
+
+[Once the data is collected...]{.center-text}  
+
+## Step 2  
+
+<https://usdagcc.sharepoint.com/sites/fs-r01-nrhyd/Shared%20Documents/Forms/AllItems.aspx>
+
+<center>
+<img src="slides_files/images/folder_tree.png" class="center">
+
+</center>  
+
+## 
+
+[Don't worry, I'm flexible!]{.center-text} 
+
+. . . 
+
+<center>
+<img src="slides_files/images/work_together.png" class="center">
+
+</center>  
+
+. . . 
+
+
+<center>
+<img src="slides_files/images/binder_o_flow.png" class="center">
+
+</center>
+## Schema  
+
+<center>
+<img src="slides_files/images/always_has_been.png" class="center">
+
+</center>
+
+## 
+
+<center>
+<img src="slides_files/images/schema.png" class="center">
+
+</center>
+
+##  
+
+<center>
+<img src="slides_files/images/example_schema.png">
+
+</center>
+
+## 
+
+Big thing is mixing types...  
+
+<center>
+<img src="slides_files/images/text_and_numeric.png" class="center">
+
+</center>
+
+##  
+
+[[hydb GUI]{.usda-green}]{.center-text}
+
+## 
+
+[This is a [WIP]{.usda-green}]{.center-text}
+
+## 
+
+

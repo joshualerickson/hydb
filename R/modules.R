@@ -94,50 +94,58 @@ graphingUI <- function(id, ...){
 #'
 graphingMod <- function(input, output, session, values){
   ns <- session$ns
-
-  output$plot <- plotly::renderPlotly({
-
-  validate(need(!values$sid_graph() %in% '', "Need to select a Station(s)"))
-
-
-  validate(need(!values$db_table_graph() %in% '', "Need to select a Table"))
-
-
-  values$station_sid_graphing <- reactive({
-    values$md %>%
-      dplyr::filter(station_nm %in% values$sid_graph()) %>%
-      dplyr::pull(sid)
-  })
-
-  df <- fetch_hydb(values$db_table_graph(), sid = values$station_sid_graphing())
-
-  df <- df %>% dplyr::left_join(values$md, by = 'sid')
-
-  switch(sub('.*\\_', '', values$db_table_graph()),
-
-         'dv' =  print(plotly::ggplotly(df %>%
-                                          ggplot2::ggplot(ggplot2::aes(.data$date, .data[[paste0('dv_', param_cd(values$db_table_graph()))]])) +
-                                          ggplot2::geom_line(ggplot2::aes(color = station_nm))+
-                                          ggplot2::theme_bw(base_size = 14) +
-                                          ggplot2::labs(color = 'Station Name') +
-                                          ggplot2::facet_wrap(~station_nm, scales = 'free'))),
-
-         'iv' = print(plotly::ggplotly(df %>%
-                                         ggplot2::ggplot(ggplot2::aes(.data$dt, .data[[paste0('iv_', param_cd(values$db_table_graph()))]])) +
-                                         ggplot2::geom_line(ggplot2::aes(color = station_nm))+
-                                         ggplot2::theme_bw(base_size = 14) +
-                                         ggplot2::labs(color = 'Station Name') +
-                                         ggplot2::facet_wrap(~station_nm, scales = 'free'))),
-
-         'obs' = print(plotly::ggplotly(df %>%
-                                          ggplot2::ggplot(ggplot2::aes(.data$date, .data[[paste0('obs_', param_cd(values$db_table_graph()))]])) +
-                                          ggplot2::geom_point(ggplot2::aes(color = station_nm)) +
-                                          ggplot2::theme_bw(base_size = 14)+
-                                          ggplot2::labs(color = 'Station Name') +
-                                          ggplot2::facet_wrap(~station_nm, scales = 'free')))
-  )
+ # validate(need(!values$sid_graph() %in% '', "Need to select a Station(s)"))
+ #
+ #
+ #  validate(need(!values$db_table_graph() %in% '', "Need to select a Table"))
+ #
+ #
+ #  values$station_sid_graphing <- reactive({
+ #    values$md %>%
+ #      dplyr::filter(station_nm %in% values$sid_graph()) %>%
+ #      dplyr::pull(sid)
+ #  })
+ #
+ #  df <- fetch_hydb(values$db_table_graph(), sid = values$station_sid_graphing())
+ #
+ #  df <- df %>% dplyr::left_join(values$md, by = 'sid')
+ #
+ #  esquisse::esquisse_server(
+ #    id = "esquisse",
+ #    data_rv = values$db_table_graph())
 
 
-  })
+
+  #
+  # output$plot <- plotly::renderPlotly({
+  #
+  #
+  #
+  # switch(sub('.*\\_', '', values$db_table_graph()),
+  #
+  #        'dv' =  print(plotly::ggplotly(df %>%
+  #                                         ggplot2::ggplot(ggplot2::aes(.data$date, .data[[paste0('dv_', param_cd(values$db_table_graph()))]])) +
+  #                                         ggplot2::geom_line(ggplot2::aes(color = station_nm))+
+  #                                         ggplot2::theme_bw(base_size = 14) +
+  #                                         ggplot2::labs(color = 'Station Name') +
+  #                                         ggplot2::facet_wrap(~station_nm, scales = 'free'))),
+  #
+  #        'iv' = print(plotly::ggplotly(df %>%
+  #                                        ggplot2::ggplot(ggplot2::aes(.data$dt, .data[[paste0('iv_', param_cd(values$db_table_graph()))]])) +
+  #                                        ggplot2::geom_line(ggplot2::aes(color = station_nm))+
+  #                                        ggplot2::theme_bw(base_size = 14) +
+  #                                        ggplot2::labs(color = 'Station Name') +
+  #                                        ggplot2::facet_wrap(~station_nm, scales = 'free'))),
+  #
+  #        'obs' = print(plotly::ggplotly(df %>%
+  #                                         ggplot2::ggplot(ggplot2::aes(.data$date, .data[[paste0('obs_', param_cd(values$db_table_graph()))]])) +
+  #                                         ggplot2::geom_point(ggplot2::aes(color = station_nm)) +
+  #                                         ggplot2::theme_bw(base_size = 14)+
+  #                                         ggplot2::labs(color = 'Station Name') +
+  #                                         ggplot2::facet_wrap(~station_nm, scales = 'free')))
+  # )
+  #
+  #
+  # })
 
 }

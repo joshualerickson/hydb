@@ -4,7 +4,7 @@
 \alias{fetch_hydb}
 \title{Fetch Data from Hydrological Database.}
 \usage{
-fetch_hydb(table, sid = NULL, network = NULL)
+fetch_hydb(table, sid = NULL, network = NULL, tbl_only = FALSE)
 }
 \arguments{
 \item{table}{A character vector of table names, e.g. 'station_metadata', 'flow_dv', etc.}
@@ -12,6 +12,8 @@ fetch_hydb(table, sid = NULL, network = NULL)
 \item{sid}{A character vector of station ids. NULL (default).}
 
 \item{network}{NULL. Used in shiny application.}
+
+\item{tbl_only}{A logical indicating whether to \link[dplyr]{collect} the table. default (FALSE).}
 }
 \value{
 A data.frame

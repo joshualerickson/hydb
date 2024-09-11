@@ -64,7 +64,16 @@ app_ui_hydb <- function(request) {
         shinydashboard::menuItem(
           "USGS Sites",
           tabName = "usgs",
-          icon = icon("binoculars")))),
+          icon = icon("binoculars")),
+        shinydashboard::menuItem(
+          "Basin Delineation",
+          tabName = "basin",
+          icon = icon("binoculars")),
+        shinydashboard::menuItem(
+          "Hydro Application",
+          tabName = "happ",
+          icon = icon("binoculars"))
+        )),
 
       ### body
 
@@ -133,15 +142,21 @@ app_ui_hydb <- function(request) {
           tabName = 'explore',
           fluidRow(shinydashboard::tabBox(width = 12, id = 'graphing',
                                           tabPanel(
-                                            title = HTML('&#8601 Choose a station'),
-                                            syle = 'height:92vh',
-                                            graphingUI('graphing_ui_1'),
-                                            uiOutput('select_table_graphing'),
-                                            uiOutput('sid_graphing')
+                                            title = HTML('&#8601 Explore'),
+                                            style = 'height:92vh',
+                                            esquisse::esquisse_ui(
+                                                                  id = "esquisse",
+                                                                  container = esquisse::esquisseContainer(height = "900px"),
+                                                                  header = FALSE, # dont display gadget title
+                                                                ),
+                                            uiOutput('select_table_graphing')
+                                            )
 
-                                          )
+                                            )
 
-          ))
+
+
+          )
         ),
         shinydashboard::tabItem(
 
@@ -161,16 +176,43 @@ app_ui_hydb <- function(request) {
               top: auto !important;
                                   }
              ")),
-          tabName = 'usgs',
-          fluidRow(shinydashboard::tabBox(width = 12, id = 'usgs_inst',
+          tabName = 'basin',
+          fluidRow(shinydashboard::tabBox(width = 12, id = 'basin_mod',
                                           tabPanel(
-                                            title = HTML('&#8601 Choose a station'),
+                                            title = HTML('&#8601 Find a basin'),
                                             syle = 'height:92vh',
-                                            gwavr::usgsinstModUI('usgsiv-ui')
+                                            gwavr::basinModUI('basin-ui')
 
                                           )
 
           ))
+        ),
+
+        shinydashboard::tabItem(
+
+          tags$head(tags$style("
+                             .shiny-notification {
+             margin-left: -10px !important;
+             height: 40px !important;
+             border-color: black;
+                             }
+
+             .modal-dialog{ width:350px}
+
+             .modal-body{ min-height:25px}
+
+             .selectize-dropdown {
+              bottom: 100% !important;
+              top: auto !important;
+                                  }
+             ")),
+          tabName = 'happ',
+          fluidRow(shiny::navbarPage('hydroapps',
+                                      tabPanel('USGS',hydroapps:::mod_station_ui("station_ui_1")
+                                                                                         ),
+                                      tabPanel('SNOTEL',hydroapps:::mod_snotel_ui('snotel_ui_1')))
+
+          )
         )
         ))
         )
@@ -188,46 +230,55 @@ app_ui_hydb <- function(request) {
 #' @noRd
 app_server_hydb <- function( input, output, session ) {
 
-  credentials <- shinyauthr::loginServer(
-    id = "login",
-    data = dplyr::tibble(user = 'usfs', password = 'waterwins'),
-    user_col = user,
-    pwd_col = password,
-    sodium_hashed = F
-  )
+  # credentials <- shinyauthr::loginServer(
+  #   id = "login",
+  #   data = dplyr::tibble(user = 'usfs', password = 'waterwins'),
+  #   user_col = user,
+  #   pwd_col = password,
+  #   sodium_hashed = F
+  # )
 
-  observe({
-    if(credentials()$user_auth) {
-      shinyjs::removeClass(selector = "body", class = "sidebar-collapse")
-    } else {
-      shinyjs::addClass(selector = "body", class = "sidebar-collapse")
-    }
-  })
+  # observe({
+  #   if(credentials()$user_auth) {
+  #     shinyjs::removeClass(selector = "body", class = "sidebar-collapse")
+  #   } else {
+  #     shinyjs::addClass(selector = "body", class = "sidebar-collapse")
+  #   }
+  # })
+
+  # create a backup here
+  windows_path <- normalizePath(file.path(Sys.getenv("HOMEDRIVE"), Sys.getenv("HOMEPATH")), winslash = .Platform$file.sep)
+
+  path <- file.path('/USDA/Northern Region Hydrology - Documents/data-madness/hydb/copy_hydb.sqlite')
+
+  db_path <- paste0(windows_path,path)
+
+  RSQLite::sqliteCopyDatabase(hydb_connect(),db_path)
 
   # List the first level callModules here
   values <- reactiveValues()
 
   output$startup <- renderUI({
 
-    req(credentials()$user_auth)
+    # req(credentials()$user_auth)
   shinybusy::show_modal_spinner(
     spin = "orbit",
     color = "#18BC9C",
     text = HTML("Loading hydb database from T:drive <br> Might take a few seconds...")
   )
 
-  path <- 'T:/FS/NFS/Kootenai/Program/2500Watershed/GIS/SO/hydb'
 
-  values$mydb <- DBI::dbConnect(RSQLite::SQLite(), paste0(path,"/hydb.sqlite"))
+  mydb <- hydb_connect()
 
-  values$md <- fetch_hydb('metadata')
+  values$mydb <- mydb
+  values$md <- fetch_hydb('station_metadata')
 
   shinybusy::remove_modal_spinner()
 
   })
 
   output$html_welcome <- renderUI({
-    req(credentials()$user_auth)
+    # req(credentials()$user_auth)
     htmltools::tags$iframe(seamless = 'seamless',
                          src = "www/hydb_welcome.html",
                          width = '100%',
@@ -237,7 +288,7 @@ app_server_hydb <- function( input, output, session ) {
 
   output$select_table <- shiny::renderUI({
 
-    req(credentials()$user_auth)
+    # req(credentials()$user_auth)
                      shiny::selectInput('db_table',
                      label = 'Select a Database Table to Upload into.',
                      selected = '',
@@ -245,11 +296,16 @@ app_server_hydb <- function( input, output, session ) {
 
   output$sid <- shiny::renderUI({
 
-    req(credentials()$user_auth)
+    # req(credentials()$user_auth)
     shiny::selectInput(
     'sid',
-    "Station ID",
-    choices = c('',fetch_hydb('metadata')$station_nm),
+    "Station Name",
+    choices = list(
+      `Kootenai National Forest` = sort(values$md[values$md$forest == 'Kootenai National Forest', ]$station_nm),
+      `Helena-Lewis and Clark National Forest` = sort(values$md[values$md$forest == 'Helena-Lewis and Clark National Forest', ]$station_nm),
+      `Lolo National Forest` = c("", sort(values$md[values$md$forest == 'Lolo National Forest', ]$station_nm)),
+      `Nez Perce-Clearwater National Forest` = sort(values$md[values$md$forest == 'Nez Perce-Clearwater National Forest', ]$station_nm)
+                        ),
     selected=""
   )
     })
@@ -262,17 +318,6 @@ app_server_hydb <- function( input, output, session ) {
       selected = '',
       choices = c('', DBI::dbListTables(values$mydb)))
     })
-
-
-  output$sid_graphing <- shiny::renderUI(shiny::selectInput(
-    'sid_graphing',
-    label = "Station ID",
-    choices = c('',fetch_hydb('metadata')$station_nm),
-    selected="",
-    multiple = TRUE
-  ))
-
-  values$sid_graph <- reactive(input$sid_graphing)
 
   values$db_table_graph <- reactive(input$db_table_graphing)
 
@@ -310,37 +355,45 @@ app_server_hydb <- function( input, output, session ) {
     req(input$db_table != '')
 
     # error catching
-    #check lengths based on table type
+    # check file name and station selected
 
-    if(!error_catching_input(values$selected_df(), values$table_selection())) {
+    if(!stringr::str_detect(tolower(values$file_path()$name), stringr::word(tolower(input$sid), 1))) {
 
-      statement <- switch(sub('.*\\_', '', values$table_selection()),
-             'dv' = paste0('"',values$table_selection(),'"',
-                           ' Requires ', 2, ' columns.'),
-             'iv' = paste0('"',values$table_selection(),'"',
-                           ' Requires ', 2, ' columns.'),
-             'obs' = paste0('"',values$table_selection(),'"',
-                           ' Requires ', 2 ,' or ', 3, ' columns.'))
 
-      shinyWidgets::show_alert(statement,
-                               'please reselect',
-                               type = 'warning'
-                                )
+    showModal(modalDialog(
+        title = "Your station name is not within the file you have selected.",
+        footer = tagList(
+          modalButton('Cancel'),
+          actionButton('override','Override')),
+        easyClose = TRUE,
+        tags$style(
+          type = 'text/css',
+          '.modal-dialog {
+            width: fit-content !important;}'
+        )))
 
-    } else if (!error_catching_param_names(values$selected_df(), values$table_selection())[[1]]) {
+      observeEvent(input$override, {
 
-      statement <- switch(sub('.*\\_', '', values$table_selection()),
-                          'dv' = paste0('"',values$table_selection(),'"',
-                                        ' Requires ', '"value" and "date" columns.'),
-                          'iv' = paste0('"',values$table_selection(),'"',
-                                        ' Requires ', '"value" and "dt" columns.'),
-                          'obs' = paste0('"',values$table_selection(),'"',
-                                         ' Requires ', '"value", "date", and/or "time" columns.'))
+        showModal(modalDialog(
+          title = "Data that you selected",
+          footer = tagList(
+            modalButton('Cancel'),
+            actionButton('done_begin_upload','Upload')),
+          easyClose = TRUE,
+          tags$style(
+            type = 'text/css',
+            '.modal-dialog {
+             width: fit-content !important;}'
+          ),
+          fluidPage(
+            fluidRow(
+              column(width = 12,
+                     DT::dataTableOutput('selected_df_dt'),
+                     plotly::plotlyOutput('data_graph', width = "800px") %>%
+                       shinycssloaders::withSpinner())
+            ))))
+      })
 
-      shinyWidgets::show_alert(statement,
-                               'please reselect with the correct column name',
-                               type = 'warning'
-      )
 
     } else {
 
@@ -358,62 +411,53 @@ app_server_hydb <- function( input, output, session ) {
     fluidPage(
       fluidRow(
       column(width = 12,
-                        DT::dataTableOutput('selected_df_dt'),
+
+             # title for page
+             title = 'Double-click to edit table cells',
+
+             DT::dataTableOutput('selected_df_dt'),
+             # add button to finish adding column and variables
                         plotly::plotlyOutput('data_graph', width = "800px") %>%
-                        shinycssloaders::withSpinner())
+                        shinycssloaders::withSpinner()
+             )
+
+
     ))))
-}
+
+  }
+
   })
 
 
 
 
-    output$selected_df_dt <- DT::renderDataTable({
+    output$selected_df_dt <-   DT::renderDataTable({
 
-    values$station_sid <- reactive({
-                      fetch_hydb('metadata') %>%
-                      dplyr::filter(station_nm %in% input$sid) %>%
-                      dplyr::pull(sid)
-                                      })
+      values$station_sid <- reactive({
+        fetch_hydb('station_metadata') %>%
+          dplyr::filter(station_nm %in% input$sid) %>%
+          dplyr::pull(sid)
+      })
 
-    quality_controlled_df <-
+      quality_controlled_df <- error_catching_param_names(values$selected_df(), values$table_selection())[[2]] %>%
+        dplyr::mutate(sid = values$station_sid()) %>%
+        dplyr::mutate(dplyr::across(dplyr::matches('iv_|obs_|dv_') & where(is.character), ~readr::parse_number(.x))) %>%
+        na.omit()
 
-      if(sub('.*\\_', '', values$table_selection()) %in% 'obs'){
 
-        if(any(names(error_catching_param_names(values$selected_df(), values$table_selection())[[2]]) %in% 'time')){
 
-        error_catching_param_names(values$selected_df(), values$table_selection())[[2]] %>%
-          dplyr::mutate(sid = values$station_sid()) %>%
-            na.omit()
+      values$selected_df2 <- reactive(switch(sub('.*\\_', '', values$table_selection()),
+                                             'dv' = quality_controlled_df %>%
+                                               dplyr::mutate(date = lubridate::as_date(date)),
+                                             'iv' = quality_controlled_df %>%
+                                               dplyr::mutate(dt = lubridate::as_datetime(dt)),
+                                             'obs' = quality_controlled_df %>%
+                                               dplyr::mutate(date = lubridate::as_date(date))))
 
-        } else {
-
-          error_catching_param_names(values$selected_df(), values$table_selection())[[2]] %>%
-            dplyr::mutate(sid = values$station_sid(),
-                          time = NA_real_)
-
-        }
-
-      } else {
-
-        error_catching_param_names(values$selected_df(), values$table_selection())[[2]] %>%
-                             dplyr::mutate(sid = values$station_sid()) %>%
-                             na.omit()
-
-      }
-
-        values$selected_df2 <- reactive(switch(sub('.*\\_', '', values$table_selection()),
-                              'dv' = quality_controlled_df %>%
-                                dplyr::mutate(date = lubridate::as_date(date)),
-                              'iv' = quality_controlled_df %>%
-                                dplyr::mutate(dt = lubridate::as_datetime(dt)),
-                              'obs' = quality_controlled_df %>%
-                                dplyr::mutate(date = lubridate::as_date(date))))
-
-        suppressWarnings(DT::datatable(values$selected_df2()))
-
+      suppressWarnings(DT::datatable(values$selected_df2()))
 
     })
+
 
     output$data_graph <- plotly::renderPlotly({
 
@@ -443,35 +487,45 @@ app_server_hydb <- function( input, output, session ) {
     })
 
 
-    observeEvent(input$done_begin_upload,{
+observeEvent(input$done_begin_upload,{
 
     shinybusy::show_modal_spinner(
       spin = "orbit",
       color = "#18BC9C",
       text = "Please wait..."
     )
-    values$identical <- switch(sub('.*\\_', '', values$table_selection()),
-                               'dv' = all.equal(fetch_hydb(values$table_selection(), values$station_sid()) %>%
-                                                  dplyr::filter(date %in% values$selected_df2()$date),values$selected_df2(), check.attributes = F),
-                               'iv' = all.equal(fetch_hydb(values$table_selection(), values$station_sid()) %>%
-                                                  dplyr::filter(dt %in% values$selected_df2()$dt),values$selected_df2(), check.attributes = F),
-                               'obs' = all.equal(fetch_hydb(values$table_selection(), values$station_sid()) %>%
-                                                   dplyr::filter(date %in% values$selected_df2()$date,
-                                                                 time %in% values$selected_df2()$time),values$selected_df2(), check.attributes = F))
+
+if(any(class(tryCatch(fetch_hydb(values$table_selection(),
+                                 values$station_sid()), error = function(e) e)) == 'error')){
+
+    values$selected_df_final_upload <- values$selected_df2()
 
 
-    if(length(values$identical) == 1){
-
-      shinyWidgets::show_alert("Looks like you've added this dataset before...",
-                               'please reselect and try again',
-                               type = 'warning'
+    showModal(modalDialog(
+      title = "First submission for this station.",
+      footer = tagList(
+        actionButton('continue', 'Continue', icon = NULL),
+        modalButton('Cancel')),
+      easyClose = TRUE,
+      tags$style(
+        type = 'text/css',
+        '.modal-dialog {
+        width: fit-content !important;}'
       )
-
-    shinybusy::remove_modal_spinner()
+    ))
 
     } else {
 
-    showModal(modalDialog(
+    values$selected_df_final_upload <- hydb_handling_duplicates(values$selected_df2(),
+                                                            fetch_hydb(values$table_selection(),
+                                                                       values$station_sid()))
+    }
+
+
+})
+
+observeEvent(input$continue, {
+showModal(modalDialog(
     title = "Final Chance to Bail",
       footer = tagList(
         modalButton('Cancel'),
@@ -487,22 +541,22 @@ app_server_hydb <- function( input, output, session ) {
                                            ' into the database?'
                                            )
                         )))
-    }
+
 })
 
-  observeEvent(input$done_begin_final_upload, {
 
 
+observeEvent(input$done_begin_final_upload, {
 
-    DBI::dbAppendTable(values$mydb, values$table_selection(), values$selected_df2())
 
+    DBI::dbAppendTable(values$mydb, values$table_selection(), values$selected_df_final_upload)
 
     removeModal()
 
   })
 
 
-  callModule(graphingMod, "graphing_ui_1", values = values)
+  #callModule(graphingMod, "graphing_ui_1", values = values)
 
   observeEvent(input$usgs_inst, {
   crud_mod <- reactive(shiny::callModule(
@@ -512,8 +566,30 @@ app_server_hydb <- function( input, output, session ) {
   ))
 
   observe({crud_mod()})
+
+
   })
 
+  observeEvent(input$basin_mod, {
+
+    crud_mod <- reactive(shiny::callModule(
+      map = NULL,
+      gwavr::basinMod,
+      'basin-ui',
+      values = values,
+      dem = NULL
+    ))
+
+    observe({crud_mod()})
+
+
+  })
+
+
+
+  callModule(hydroapps:::mod_station_server, "station_ui_1", values = values)
+
+  callModule(hydroapps:::mod_snotel_server, 'snotel_ui_1', values = values)
 
 
   onStop(function(){
@@ -527,6 +603,23 @@ app_server_hydb <- function( input, output, session ) {
     stopApp()
 
   })
+
+
+
+
+observeEvent(input$db_table_graphing, {
+
+  validate(need(!values$db_table_graph() %in% '', "Need to select a Table"))
+
+
+  values$df <- reactive(fetch_hydb(values$db_table_graph()) %>%
+               dplyr::left_join(values$md, by = 'sid'))
+
+  esquisse::esquisse_server(
+    id = "esquisse",
+    data_rv = values$df)
+})
+
 
 }
 
