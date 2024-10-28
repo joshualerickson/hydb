@@ -4,16 +4,16 @@
 \alias{ftbl}
 \title{Fetch Table}
 \usage{
-ftbl(table, sid, mydb, tbl_only)
+ftbl(table, mydb, tbl_only, ...)
 }
 \arguments{
 \item{table}{A character vector of table names, e.g. 'station_metadata', 'flow_dv', etc.}
 
-\item{sid}{A character vector of station ids. NULL (default).}
-
 \item{mydb}{A connected database object.}
 
 \item{tbl_only}{A logical indicating whether to \link[dplyr]{collect} the table.}
+
+\item{...}{Option to pass calls to \code{dplyr::filter()}.}
 }
 \value{
 A table

@@ -1,18 +1,18 @@
 #' Fetch Data from Hydrological Database.
 #'
 #' @param table A character vector of table names, e.g. 'station_metadata', 'flow_dv', etc.
-#' @param sid A character vector of station ids. NULL (default).
 #' @param network NULL. Used in shiny application.
 #' @param tbl_only A logical indicating whether to \link[dplyr]{collect} the table. default (FALSE).
+#' @param ... Option to pass calls to `dplyr::filter()`.
 #' @importFrom dplyr tbl
 #'
 #' @return A data.frame
 #' @export
 #'
 fetch_hydb <- function(table,
-                       sid = NULL,
                        network = NULL,
-                       tbl_only = FALSE) {
+                       tbl_only = FALSE,
+                       ...) {
 
 
 
@@ -26,7 +26,7 @@ fetch_hydb <- function(table,
 
   }
 
-  fetch_table <- ftbl(table, sid, mydb, tbl_only)
+  fetch_table <- ftbl(table, mydb, tbl_only, ...)
 
   fetch_table
 
@@ -36,12 +36,12 @@ fetch_hydb <- function(table,
 #' Fetch Table
 #'
 #' @param table A character vector of table names, e.g. 'station_metadata', 'flow_dv', etc.
-#' @param sid A character vector of station ids. NULL (default).
 #' @param tbl_only A logical indicating whether to \link[dplyr]{collect} the table.
+#' @param ... Option to pass calls to `dplyr::filter()`.
 #' @param mydb A connected database object.
 #'
 #' @return A table
-ftbl <- function(table, sid, mydb, tbl_only) {
+ftbl <- function(table, mydb, tbl_only, ...) {
 
   fetch_table <- switch(table,
          'flow_iv' = tbl(mydb, 'flow_iv'),
@@ -72,19 +72,25 @@ ftbl <- function(table, sid, mydb, tbl_only) {
 
   if(tbl_only) {
 
+
+    if(!grepl(c('metadata|codes'), table)){
+
+      fetch_table <- switch(sub('.*\\_', '', table),
+                            'dv' = fetch_table %>%
+                              dplyr::mutate(date = lubridate::as_date(date)),
+                            'iv' = fetch_table %>%
+                              dplyr::mutate(dt = lubridate::as_datetime(dt)),
+                            'obs' = fetch_table %>%
+                              dplyr::mutate(date = lubridate::as_date(date)))
+
+
+    }
+
   } else {
 
-  if(!is.null(sid)){
+  fetch_table <- fetch_table %>%
+                 dplyr::collect()
 
-    fetch_table <- fetch_table %>%
-      dplyr::filter(sid %in% {{sid}}) %>%
-      dplyr::collect()
-
-  } else {
-
-    fetch_table <- fetch_table %>%
-      dplyr::collect()
-  }
 
    if(!grepl(c('metadata|codes'), table)){
 

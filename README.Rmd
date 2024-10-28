@@ -64,7 +64,7 @@ When interacting with the database there are some key things to know about the t
 
 * `precip_*` contains a continuous variable (`00045`) of precipitation in inches.  
 * `flow_*` contains a continuous variable (`00060`) of discharge in cubic feet/second (cfs).
-* `tss_*` contains a continuous variable (`00530`) of total suspended sediment (tss) in mg/l.  
+* `tss_*` contains a continuous variable (`70288`) of total suspended sediment (tss) in mg/l.  
 * `stage_*` contains a continuous variable (`00065`) of stage in inches.  
 * `wtemp_*` contains a continuous variable (`00011`) of water temperature in Fahrenheit.  
 * `airtemp_*` contains a continuous variable (`00021`) of air temperature in Fahrenheit.  
@@ -92,14 +92,16 @@ library(hydb)
 library(dplyr)
 
 # get the metadata
-meta_data <- fetch_hydb(table = 'metadata')
+meta_data <- fetch_hydb(table = 'station_metadata') %>% 
+                    dplyr::filter(forest == 'Kootenai National Forest') %>% 
+                    dplyr::collect()
 
 head(meta_data)
 
 # now just get flow_dv sites on the Kootenai National Forest
-flow_kootenai_dv <- fetch_hydb(table = 'flow_dv',
-                            sid = meta_data[meta_data$forest == 'Kootenai' &
-                                                 meta_data$district == 'Ksanka',]$sid)
+flow_kootenai_dv <- fetch_hydb(table = 'flow_dv', tbl_only = T) %>% 
+                    dplyr::filter(sid %in% meta_data$sid) %>% 
+                    dplyr::collect()
 
 head(flow_kootenai_dv)
 
@@ -120,9 +122,8 @@ library(DBI)
 library(RSQLite)
 
 # get the metadata
-path <- 'T:/FS/NFS/Kootenai/Program/2500Watershed/GIS/SO/hydb'
 
-mydb <- DBI::dbConnect(RSQLite::SQLite(), paste0(path,"/hydb.sqlite"))
+mydb <- hydb::hydb_connect()
 
 metadata <- dplyr::collect(tbl(mydb, 'station_metadata'))
 

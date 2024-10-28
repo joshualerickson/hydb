@@ -34,11 +34,11 @@ precipitation) across Region 1. Currently the tables available are below
 
 There are several ways to interact with the hydb database:
 
--   The first requires network privileges through the USDA and using the
-    `fetch_hydb()` function.
+- The first requires network privileges through the USDA and using the
+  `fetch_hydb()` function.
 
--   The second is eventually have this open-source through a database
-    online (using `fetch_hydb()`).
+- The second is eventually have this open-source through a database
+  online (using `fetch_hydb()`).
 
 ## Database Design
 
@@ -59,10 +59,11 @@ type `_obs`, e.g. `precip_obs` would be a table in the database.
 library(hydb)
 hydb_tables()
 #>  [1] "airtemp_dv"       "airtemp_iv"       "airtemp_obs"      "flow_dv"         
-#>  [5] "flow_iv"          "flow_obs"         "precip_dv"        "precip_iv"       
-#>  [9] "precip_obs"       "stage_dv"         "stage_iv"         "stage_obs"       
-#> [13] "station_metadata" "tss_dv"           "tss_iv"           "tss_obs"         
-#> [17] "wtemp_dv"         "wtemp_iv"         "wtemp_obs"
+#>  [5] "flow_iv"          "flow_obs"         "param_codes"      "precip_dv"       
+#>  [9] "precip_iv"        "precip_obs"       "sarea_obs"        "stage_dv"        
+#> [13] "stage_iv"         "stage_obs"        "stat_codes"       "station_metadata"
+#> [17] "svel_obs"         "swidth_obs"       "tss_dv"           "tss_iv"          
+#> [21] "tss_obs"          "wtemp_dv"         "wtemp_iv"         "wtemp_obs"
 ```
 
 ## Data
@@ -71,37 +72,35 @@ When interacting with the database there are some key things to know
 about the tables. Each parameter has a code associated with it and
 follows the USGS naming conventions.
 
--   `precip_*` contains a continuous variable (`00045`) of precipitation
-    in inches.  
--   `flow_*` contains a continuous variable (`00060`) of discharge in
-    cubic feet/second (cfs).
--   `tss_*` contains a continuous variable (`00530`) of total suspended
-    sediment (tss) in mg/l.  
--   `stage_*` contains a continuous variable (`00065`) of stage in
-    inches.  
--   `wtemp_*` contains a continuous variable (`00011`) of water
-    temperature in Fahrenheit.  
--   `airtemp_*` contains a continuous variable (`00021`) of air
-    temperature in Fahrenheit.
+- `precip_*` contains a continuous variable (`00045`) of precipitation
+  in inches.  
+- `flow_*` contains a continuous variable (`00060`) of discharge in
+  cubic feet/second (cfs).
+- `tss_*` contains a continuous variable (`70288`) of total suspended
+  sediment (tss) in mg/l.  
+- `stage_*` contains a continuous variable (`00065`) of stage in
+  inches.  
+- `wtemp_*` contains a continuous variable (`00011`) of water
+  temperature in Fahrenheit.  
+- `airtemp_*` contains a continuous variable (`00021`) of air
+  temperature in Fahrenheit.
 
 In addition, the particular collection type has different definitions.
 
--   `iv` is an *instantaneous value*. Meaning, the value is collected
-    multiple times a day without being aggregated. For example,
-    transducer or precipitation sensors will have multiple readings in
-    one day. This would be appropriate to put in the `_iv` database
-    table.
+- `iv` is an *instantaneous value*. Meaning, the value is collected
+  multiple times a day without being aggregated. For example, transducer
+  or precipitation sensors will have multiple readings in one day. This
+  would be appropriate to put in the `_iv` database table.
 
--   `dv` is a mean *daily value*. This is data aggregated with `_iv`
-    data. For example, aggregating multiple transducer readings to one
-    day by mean would be appropriate for the `_dv` database table.
+- `dv` is a mean *daily value*. This is data aggregated with `_iv` data.
+  For example, aggregating multiple transducer readings to one day by
+  mean would be appropriate for the `_dv` database table.
 
--   `obs` is an *observed value*. This is collected by a human
-    (discharge, precipitation, tss grab) and then used to interpolate
-    measurements when not observed via sensors (in most cases). For
-    example, taking a discharge measurement at a site would be an
-    observation of discharge. Or, a sample of water would be an
-    observation.
+- `obs` is an *observed value*. This is collected by a human (discharge,
+  precipitation, tss grab) and then used to interpolate measurements
+  when not observed via sensors (in most cases). For example, taking a
+  discharge measurement at a site would be an observation of discharge.
+  Or, a sample of water would be an observation.
 
 ## Interacting with hydb
 
@@ -122,7 +121,6 @@ Here is a short example of the two different ways to interact.
 ``` r
 library(hydb)
 library(dplyr)
-#> Warning: package 'dplyr' was built under R version 4.2.1
 #> 
 #> Attaching package: 'dplyr'
 #> The following objects are masked from 'package:stats':
@@ -133,37 +131,38 @@ library(dplyr)
 #>     intersect, setdiff, setequal, union
 
 # get the metadata
-meta_data <- fetch_hydb(table = 'metadata')
+meta_data <- fetch_hydb(table = 'station_metadata') %>% 
+                    dplyr::filter(forest == 'Kootenai National Forest') %>% 
+                    dplyr::collect()
 
 head(meta_data)
-#> # A tibble: 6 × 8
-#>   station_nm  Long   Lat COMID    sid         region          forest   district
-#>   <chr>      <dbl> <dbl> <chr>    <chr>       <chr>           <chr>    <chr>   
-#> 1 Big        -115.  48.8 22878931 01140175801 Northern Region Kootenai Ksanka  
-#> 2 Brimstone  -115.  48.7 22879335 01140151446 Northern Region Kootenai Ksanka  
-#> 3 Deep       -115.  48.8 22879371 01140123731 Northern Region Kootenai Ksanka  
-#> 4 Dodge      -115.  48.9 22878889 01140112173 Northern Region Kootenai Ksanka  
-#> 5 Edna       -115.  48.7 22878673 01140194694 Northern Region Kootenai Ksanka  
-#> 6 Grave      -115.  48.8 22878787 01140119690 Northern Region Kootenai Ksanka
+#> # A tibble: 6 × 10
+#>   station_nm      Long   Lat COMID sid   region forest district comments purpose
+#>   <chr>          <dbl> <dbl> <chr> <chr> <chr>  <chr>  <chr>    <chr>    <chr>  
+#> 1 Big Creek      -115.  48.8 2287… 0114… North… Koote… Ksanka … <NA>     <NA>   
+#> 2 Brimstone Cre… -115.  48.7 2287… 0114… North… Koote… Ksanka … <NA>     <NA>   
+#> 3 Deep Creek     -115.  48.8 2287… 0114… North… Koote… Ksanka … <NA>     <NA>   
+#> 4 Dodge Creek    -115.  48.9 2287… 0114… North… Koote… Ksanka … <NA>     <NA>   
+#> 5 Edna Creek     -115.  48.7 2287… 0114… North… Koote… Ksanka … <NA>     <NA>   
+#> 6 Grave Creek    -115.  48.8 2287… 0114… North… Koote… Ksanka … <NA>     <NA>
 
 # now just get flow_dv sites on the Kootenai National Forest
-flow_kootenai_dv <- fetch_hydb(table = 'flow_dv',
-                            sid = meta_data[meta_data$forest == 'Kootenai' &
-                                                 meta_data$district == 'Ksanka',]$sid)
+flow_kootenai_dv <- fetch_hydb(table = 'flow_dv', tbl_only = T) %>% 
+                    dplyr::filter(sid %in% meta_data$sid) %>% 
+                    dplyr::collect()
 
 head(flow_kootenai_dv)
-#> # A tibble: 6 × 3
-#>   date       dv_00060 sid        
-#>   <date>        <dbl> <chr>      
-#> 1 2022-05-05    19.1  01140129657
-#> 2 2022-05-06    22.3  01140129657
-#> 3 2022-05-07    19.1  01140129657
-#> 4 2022-05-08    14.1  01140129657
-#> 5 2022-05-09    11.0  01140129657
-#> 6 2022-05-10     8.92 01140129657
+#> # A tibble: 6 × 5
+#>    date dv_00060 sid         type  statistic_type_code
+#>   <dbl>    <dbl> <chr>       <chr> <chr>              
+#> 1 19117    19.1  01140129657 <NA>  00003              
+#> 2 19118    22.3  01140129657 <NA>  00003              
+#> 3 19119    19.1  01140129657 <NA>  00003              
+#> 4 19120    14.1  01140129657 <NA>  00003              
+#> 5 19121    11.0  01140129657 <NA>  00003              
+#> 6 19122     8.92 01140129657 <NA>  00003
 
 library(ggplot2)
-#> Warning: package 'ggplot2' was built under R version 4.2.1
 
 flow_kootenai_dv %>% 
   left_join(meta_data, by = 'sid') %>% 
@@ -179,25 +178,23 @@ flow_kootenai_dv %>%
 ``` r
 library(DBI)
 library(RSQLite)
-#> Warning: package 'RSQLite' was built under R version 4.2.1
 
 # get the metadata
-path <- 'T:/FS/NFS/Kootenai/Program/2500Watershed/GIS/SO/hydb'
 
-mydb <- DBI::dbConnect(RSQLite::SQLite(), paste0(path,"/hydb.sqlite"))
+mydb <- hydb::hydb_connect()
 
 metadata <- dplyr::collect(tbl(mydb, 'station_metadata'))
 
 head(metadata)
-#> # A tibble: 6 × 8
-#>   station_nm  Long   Lat COMID    sid         region          forest   district
-#>   <chr>      <dbl> <dbl> <chr>    <chr>       <chr>           <chr>    <chr>   
-#> 1 Big        -115.  48.8 22878931 01140175801 Northern Region Kootenai Ksanka  
-#> 2 Brimstone  -115.  48.7 22879335 01140151446 Northern Region Kootenai Ksanka  
-#> 3 Deep       -115.  48.8 22879371 01140123731 Northern Region Kootenai Ksanka  
-#> 4 Dodge      -115.  48.9 22878889 01140112173 Northern Region Kootenai Ksanka  
-#> 5 Edna       -115.  48.7 22878673 01140194694 Northern Region Kootenai Ksanka  
-#> 6 Grave      -115.  48.8 22878787 01140119690 Northern Region Kootenai Ksanka
+#> # A tibble: 6 × 10
+#>   station_nm      Long   Lat COMID sid   region forest district comments purpose
+#>   <chr>          <dbl> <dbl> <chr> <chr> <chr>  <chr>  <chr>    <chr>    <chr>  
+#> 1 Big Creek      -115.  48.8 2287… 0114… North… Koote… Ksanka … <NA>     <NA>   
+#> 2 Brimstone Cre… -115.  48.7 2287… 0114… North… Koote… Ksanka … <NA>     <NA>   
+#> 3 Deep Creek     -115.  48.8 2287… 0114… North… Koote… Ksanka … <NA>     <NA>   
+#> 4 Dodge Creek    -115.  48.9 2287… 0114… North… Koote… Ksanka … <NA>     <NA>   
+#> 5 Edna Creek     -115.  48.7 2287… 0114… North… Koote… Ksanka … <NA>     <NA>   
+#> 6 Grave Creek    -115.  48.8 2287… 0114… North… Koote… Ksanka … <NA>     <NA>
 # now just get flow_dv sites on the Kootenai National Forest
     
 fetch_table = dplyr::collect(tbl(mydb, 'flow_dv'))               
@@ -206,15 +203,9 @@ flow_kootenai <- fetch_table %>%
                  dplyr::filter(sid %in% meta_data[meta_data$forest == 'Kootenai' & meta_data$district == 'Ksanka',]$sid )
 
 head(flow_kootenai)
-#> # A tibble: 6 × 3
-#>    date dv_00060 sid        
-#>   <dbl>    <dbl> <chr>      
-#> 1 19117    19.1  01140129657
-#> 2 19118    22.3  01140129657
-#> 3 19119    19.1  01140129657
-#> 4 19120    14.1  01140129657
-#> 5 19121    11.0  01140129657
-#> 6 19122     8.92 01140129657
+#> # A tibble: 0 × 5
+#> # ℹ 5 variables: date <dbl>, dv_00060 <dbl>, sid <chr>, type <chr>,
+#> #   statistic_type_code <chr>
 ```
 
 ## Contributing

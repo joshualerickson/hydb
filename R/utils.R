@@ -35,13 +35,12 @@ error=function(cond) {
 }),
 
     'tss' = tryCatch({data %>% dplyr::rename_with(~dplyr::case_when(
-    .x == "tss" ~ paste0(sub('.*\\_', '', table_type), "_00530"),
-    .x == "tss_00530" ~ paste0(sub('.*\\_', '', table_type), "_00530"),
-    .x == "tss_" ~ paste0(sub('.*\\_', '', table_type), "_00530"),
-    .x == "total_suspended_sediment" ~ paste0(sub('.*\\_', '', table_type), "_00530"),
-    .x == 'tss_mg_l' ~ paste0(sub('.*\\_', '', table_type), "_00530"),
-    .x == "sediment" ~ paste0(sub('.*\\_', '', table_type), "_00530"),
-    .x == 'sed' ~ paste0(sub('.*\\_', '', table_type), "_00530"),
+    .x == "tss" ~ paste0(sub('.*\\_', '', table_type), "_70288"),
+    .x == "tss_" ~ paste0(sub('.*\\_', '', table_type), "_70288"),
+    .x == "total_suspended_sediment" ~ paste0(sub('.*\\_', '', table_type), "_70288"),
+    .x == 'tss_mg_l' ~ paste0(sub('.*\\_', '', table_type), "_70288"),
+    .x == "sediment" ~ paste0(sub('.*\\_', '', table_type), "_70288"),
+    .x == 'sed' ~ paste0(sub('.*\\_', '', table_type), "_70288"),
     stringr::str_detect(.x, 'date') & gsub("^[^_]*_", '', table_type) %in% c('dv', 'obs') ~ 'date',
     stringr::str_detect(.x, 'date') & gsub("^[^_]*_", '', table_type) %in% c('iv') ~ 'dt',
     TRUE ~ .x))},
@@ -177,7 +176,7 @@ param_cd <- function(table_type) {
   switch(
     gsub('_.*', '', table_type),
     'flow' = '00060',
-    'tss' = '00530',
+    'tss' = '70288',
     'precip' = '00045',
     'stage' = '00065',
     'airtemp' = '00021',
