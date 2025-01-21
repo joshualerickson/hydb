@@ -205,6 +205,22 @@ stat_cd <- function(stat_type) {
   )
 }
 
+#' @param stat_type A character.
+#'
+#' @return A character of stat code.
+#' @noRd
+stat_cd_to_name <- function(stat_type) {
+  dplyr::case_when(
+    stringr::str_detect(stat_type,'00003') ~ 'mean',
+    stringr::str_detect(stat_type, '00001') ~ 'max',
+    stringr::str_detect(stat_type,'00006') ~ 'sum',
+    stringr::str_detect(stat_type, '00002') ~ 'min',
+    stringr::str_detect(stat_type, '00008') ~ 'median',
+    stringr::str_detect(stat_type, '00009') ~ 'stdev',
+    stringr::str_detect(stat_type, '00004') ~ 'coef_var'
+
+  )
+}
 
 #' 'Clean' a character/factor vector like `janitor::clean_names()` does for data frame columns
 #'
@@ -252,22 +268,31 @@ clean_vec <- function (x, refactor=FALSE, dupe_count = FALSE) {
 
 #' Connect to hydb
 #'
+#' @param path A character vector file path to `.sqlite` database.
 #' @return Nothing. Side effect connecting to hydb.
 #' @export
 #'
-#' @note Must be a memeber of the `USDA Northern Region Hydrology` sharepoint group.
+#' @note Must be a member of the `USDA Northern Region Hydrology` sharepoint group if `path = NULL`.
 
-hydb_connect <- function() {
+hydb_connect <- function(path = NULL) {
 
+  if(is.null(path)){
   windows_path <- normalizePath(file.path(Sys.getenv("HOMEDRIVE"), Sys.getenv("HOMEPATH")), winslash = .Platform$file.sep)
 
   path <- file.path('/USDA/Northern Region Hydrology - Documents/data-madness/hydb')
 
   mydb <- DBI::dbConnect(RSQLite::SQLite(), paste0(windows_path,path,"/hydb.sqlite"))
 
+  } else {
+
+  mydb <- DBI::dbConnect(RSQLite::SQLite(), path)
+
+  }
+
   assign('mydb', mydb)
 
   mydb
+
 }
 
 #' Disconnect to hydb
@@ -282,3 +307,167 @@ hydb_disconnect <- function() {
   DBI::dbDisconnect(mydb)
 
 }
+
+
+#' comids
+#'
+#' @description
+#' Get NHDPLus comid by point location.
+#'
+#' @param point An sf POINT object
+#'
+#' @return A character vector with comid
+#' @export
+#'
+comids <- function(point) {
+  clat <- point$geometry[[1]][[2]]
+  clng <- point$geometry[[1]][[1]]
+
+  ids <- paste0("https://labs.waterdata.usgs.gov/api/nldi/linked-data/comid/position?coords=POINT%28",
+                clng,"%20", clat, "%29")
+
+  error_ids <- httr::GET(url = ids,
+                         httr::write_disk(path = file.path(tempdir(),
+                                                           "nld_tmp.json"),overwrite = TRUE))
+
+  nld <- jsonlite::fromJSON(file.path(tempdir(),"nld_tmp.json"))
+
+}
+#' Clean Spatial Duplicates
+#'
+#' @description
+#' Get cleaned duplicates.
+#'
+#' @param point An sf POINT object
+#'
+#' @return An sf object
+#' @export
+#'
+hydb_clean_duplicate_metadata <- function(point) {
+
+  eq_list <- sf::st_equals(point)
+
+  group_mapping <- sapply(seq_along(eq_list), function(i) {min(unlist(eq_list[[i]]))})
+
+  point <- point %>%
+    dplyr::mutate(group_id = group_mapping) %>%
+    dplyr::group_by(group_id) %>%
+    dplyr::summarise(dplyr::across(dplyr::where(is.character), ~paste(unique(.), collapse = ", "), .names = "{col}"),
+              across(dplyr::where(is.numeric), first),
+              geometry = sf::st_union(geometry)) %>%
+    dplyr::ungroup() %>%
+    dplyr::select(-group_id)
+}
+
+#' Setup Metadata
+#'
+#' @param point An sf POINT cleaned.
+#'
+#' @return A `tibble()` ready for appending to hydb.
+#' @export
+#'
+hydb_setup_metadata <- function(point) {
+
+  if(any(!names(point) %in% c('station_nm', 'purpose', 'comments', 'geometry'))) stop(message('need corrent column names'))
+
+  # now give each station its sid
+  # read in the admin districts
+
+  admin_districts <- read_sf('Z:/simple_features/lands/admin_units_district.shp')  %>%
+    sf::st_transform(4326) %>%
+    sf::st_make_valid() %>%
+    dplyr::select(sid = DISTRICTOR,
+                  forest = FORESTNAME,
+                  district = DISTRICTNA)
+
+  meta_data <- point %>%
+    st_transform(4326) %>%
+    st_make_valid()
+
+  meta_data_copy <- meta_data %>%
+    st_intersection(admin_districts)
+
+  if(any(!meta_data$station_nm %in% meta_data_copy$station_nm)){
+    site_off_fs_land <- meta_data[!meta_data$station_nm %in% meta_data_copy$station_nm,] %>%
+      dplyr::mutate(
+        sid = admin_districts[sf::st_nearest_feature(., admin_districts),]$sid,
+        forest = admin_districts[sf::st_nearest_feature(., admin_districts),]$forest,
+        district = admin_districts[sf::st_nearest_feature(., admin_districts),]$district,
+        comments = paste0('Off NFS Land; ',comments)
+      )
+
+    meta_data_copy <- meta_data_copy %>% dplyr::bind_rows(site_off_fs_land) %>% sf::st_as_sf()
+
+  }
+
+
+  meta_data_coordinates <- meta_data_copy %>% bind_cols(tibble(Long = st_coordinates(.)[,1],Lat = st_coordinates(.)[,2])) %>% st_drop_geometry()
+  meta_data_copy <- meta_data_copy %>% bind_cols(meta_data_coordinates %>% select(Long, Lat))
+
+  #check to see if it already exists and also get a unique suffix
+
+  md <- fetch_hydb('station_metadata', tbl_only = T)
+
+  forests_filter <- unique(meta_data_copy$forest)
+
+  md <- md %>% dplyr::filter(forest %in% forests_filter) %>% dplyr::collect()
+
+  md_start <- max(as.numeric(substr(md$sid, 7, nchar(md$sid))))
+
+
+  #now add unique 5-digit code
+
+  meta_data_copy <- meta_data_copy %>%
+    arrange(desc(Lat)) %>%
+    mutate(sid = paste0(sid, sprintf("%05d", md_start + row_number())))
+
+  #then run to get COMID
+  comids_nwis <- meta_data_copy %>%
+    split(.$sid) %>%
+    purrr::map(~comids(.)$features$properties$identifier)
+
+  comids_nwis <- tibble(COMID = as.character(comids_nwis),
+                        sid = names(comids_nwis))
+
+  meta_data_final <- meta_data_copy  %>% left_join(comids_nwis) %>% sf::st_drop_geometry()
+
+
+}
+
+
+#' Transform IV to DV
+#'
+#' @param data A data.frame
+#'
+#' @return A `tibble()`.
+#' @export
+#' @note Need to have columns `dt`, `sid` and `iv_*` and `iv_*` needs to be column position 2.
+
+hydb_daily_transform <- function(data) {
+
+  data_add_daily_stats <-  data %>%
+    dplyr::mutate(date = lubridate::date(dt)) %>%
+    dplyr::group_by(sid, date) %>%
+    dplyr::summarise(dplyr::across(dplyr::any_of(dplyr::starts_with('iv_')),
+                     list(
+                       sum = ~sum(.x, na.rm = TRUE),
+                       max = ~max(.x, na.rm = TRUE),
+                       min = ~min(.x, na.rm = TRUE),
+                       mean = ~mean(.x, na.rm = TRUE),
+                       median = ~median(.x, na.rm = TRUE),
+                       stdev = ~sd(.x, na.rm = TRUE),
+                       coef_var = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm = TRUE))))  %>%
+    dplyr::ungroup() %>%
+    tidyr::pivot_longer(dplyr::starts_with('iv_'))%>%
+    dplyr::mutate(statistic_type_code = stat_cd(name))
+
+  param_type <- paste0('dv',unique(substr(data_add_daily_stats$name, 3, 8)))
+
+  variable_to_rename <- 'value'
+
+  data_add_daily_stats %>%
+  dplyr::rename(!!param_type := !!rlang::sym('value')) %>%
+  dplyr::select(-name)
+
+}
+

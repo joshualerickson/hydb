@@ -116,6 +116,7 @@ app_ui_hydb <- function(request) {
                       hydbModUI("hydb_ui_1"),
                       uiOutput('select_table'),
                       uiOutput("sid"),
+                      uiOutput("select_metric"),
                       actionButton('begin_upload', 'Submit Table')
           )
 
@@ -301,8 +302,9 @@ app_server_hydb <- function( input, output, session ) {
     'sid',
     "Station Name",
     choices = list(
-      `Kootenai National Forest` = sort(values$md[values$md$forest == 'Kootenai National Forest', ]$station_nm),
       `Helena-Lewis and Clark National Forest` = sort(values$md[values$md$forest == 'Helena-Lewis and Clark National Forest', ]$station_nm),
+      `Idaho Panhandle National Forest` = sort(values$md[values$md$forest == 'Idaho Panhandle National Forests', ]$station_nm),
+      `Kootenai National Forest` = sort(values$md[values$md$forest == 'Kootenai National Forest', ]$station_nm),
       `Lolo National Forest` = c("", sort(values$md[values$md$forest == 'Lolo National Forest', ]$station_nm)),
       `Nez Perce-Clearwater National Forest` = sort(values$md[values$md$forest == 'Nez Perce-Clearwater National Forest', ]$station_nm)
                         ),
@@ -317,6 +319,12 @@ app_server_hydb <- function( input, output, session ) {
       label = 'Select a Database Table.',
       selected = '',
       choices = c('', DBI::dbListTables(values$mydb)))
+    })
+
+  output$select_metric <- shiny::renderUI({
+    shiny::radioButtons('db_table_metric',
+      label = 'What is your metric?',
+      choices = 'Celcius',selected = character(0))
     })
 
   values$db_table_graph <- reactive(input$db_table_graphing)
@@ -446,13 +454,25 @@ app_server_hydb <- function( input, output, session ) {
 
 
 
-      values$selected_df2 <- reactive(switch(sub('.*\\_', '', values$table_selection()),
+      values$selected_df_dates <- switch(sub('.*\\_', '', values$table_selection()),
                                              'dv' = quality_controlled_df %>%
                                                dplyr::mutate(date = lubridate::as_date(date)),
                                              'iv' = quality_controlled_df %>%
                                                dplyr::mutate(dt = lubridate::as_datetime(dt)),
                                              'obs' = quality_controlled_df %>%
-                                               dplyr::mutate(date = lubridate::as_date(date))))
+                                               dplyr::mutate(date = lubridate::as_date(date)))
+      print(input$db_table_metric == 'Celcius')
+
+      if(input$db_table_metric == 'Celcius'){
+
+        values$selected_df2 <- reactive(values$selected_df_dates %>% dplyr::mutate(dplyr::across(c(2), ~.x*1.8 + 32)))
+
+      } else {
+
+        values$selected_df2 <-  reactive(values$selected_df_dates)
+
+        }
+
 
       suppressWarnings(DT::datatable(values$selected_df2()))
 
@@ -547,7 +567,6 @@ showModal(modalDialog(
 
 
 observeEvent(input$done_begin_final_upload, {
-
 
     DBI::dbAppendTable(values$mydb, values$table_selection(), values$selected_df_final_upload)
 

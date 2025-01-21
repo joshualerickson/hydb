@@ -30,4 +30,5 @@ Imports:
     readxl,
     shinyWidgets,
     janitor,
-    ggplot2
+    ggplot2,
+    rlang

@@ -137,3 +137,84 @@ for (i in c('flow_iv', 'flow_dv', 'flow_obs',
 
 }
 
+
+## working with accessdb
+
+library(RODBC)
+
+npcw20to24 <- RODBC::odbcConnectAccess2007(r"{C:/Users/joshualerickson/USDA/Northern Region Hydrology - Documents/data-madness/forests/NPCW/wtemp/npcw_temp_2020_2024/NezClearwater_Temp_data_FY20-24.accdb}")
+
+RODBC::sqlTables(npcw20to24)
+
+temp <- RODBC::sqlFetch(npcw20to24, 'NRW_AI_Temperature', as.is = TRUE)
+
+temp_survey <- RODBC::sqlFetch(npcw20to24, 'NRW_AI_TEMPERATURE_SRVY', as.is = TRUE)
+
+
+# write iv to dv
+
+
+npcw_wtemp_iv <- fetch_hydb('wtemp_iv', tbl_only = T)
+
+npcw_wtemp_iv <- npcw_wtemp_iv %>% filter(substring(sid, 1, 4) == '0117') %>% collect() %>% mutate(dt = as_datetime(dt))
+
+npcw_dv <- hydb_daily_transform(npcw_wtemp_iv) %>% filter(statistic_type_code != '00006')
+
+mydb <- hydb_connect()
+
+DBI::dbAppendTable(mydb, 'wtemp_dv', npcw_dv)
+
+hydb_disconnect()
+
+# now get the daily's and write to csv files in ipnf folder
+
+
+npcw_wtemp_dv <- fetch_hydb('wtemp_dv', tbl_only = T)
+
+npcw_wtemp_dv <- npcw_wtemp_dv %>%
+  filter(substring(sid, 1, 4) == '0117') %>%
+  collect() %>%
+  mutate(date = as_date(date))
+
+npcw_wtemp_dv_pivot <- npcw_wtemp_dv %>%
+  mutate(statistic_type_code = hydb:::stat_cd_to_name(statistic_type_code)) %>%
+  pivot_wider(values_from = dv_00011, names_from = statistic_type_code)
+
+npcw_wtemp_dv_pivot_gp <-
+  npcw_wtemp_dv_pivot %>%
+  group_nest(sid, year = year(date))
+
+path_dv <- r'{C:\Users\joshualerickson\USDA\Northern Region Hydrology - Documents\data-madness\forests\NPCW\wtemp\final\dv}'
+
+
+for(i in seq_len(nrow(npcw_wtemp_dv_pivot_gp))){
+
+  station_id <- npcw_wtemp_dv_pivot_gp$sid[i]
+  year <- npcw_wtemp_dv_pivot_gp$year[i]
+  data <- npcw_wtemp_dv_pivot_gp$data[[i]]
+
+  station_name <- stations %>% dplyr::filter(sid == station_id) %>% pull(station_nm)
+
+  year_dir <- file.path(path_dv, year)
+
+  if(!dir.exists(year_dir)) {
+    dir.create(year_dir, recursive = T)
+  }
+
+  station_dir <- file.path(year_dir, paste0(station_name, '_', station_id))
+
+  if(!dir.exists(station_dir)) {
+    dir.create(station_dir, recursive = T)
+  }
+
+  csv_file <- file.path(station_dir, paste0(station_name, '_', year, '_dv_', station_id, '.csv'))
+  write_csv(data, csv_file)
+
+}
+
+
+path_md <- r'{C:\Users\joshualerickson\USDA\Northern Region Hydrology - Documents\data-madness\forests\NPCW\wtemp\station_metadata.csv}'
+
+write_csv(stations %>% filter(forest == 'Nez Perce-Clearwater National Forest',
+                              str_detect(comments, 'Water Temperature')), path_md)
+

@@ -44,3 +44,27 @@ hydb_handling_duplicates <- function(data, existing_data) {
 
 }
 
+hydb_remove_duplicates_from_db <- function(hydb) {
+
+  mydb <- hydb_connect()
+
+  tables <- DBI::dbListTables(mydb)
+
+  for (table in tables) {
+
+    data <- dplyr::tbl(mydb, table)
+
+    deduplicated_data <- data[!duplicated(data), ]
+
+    DBI::dbWr
+
+  }
+
+}
+
+
+
+
+
+
+

@@ -4,16 +4,16 @@
 \alias{fetch_hydb}
 \title{Fetch Data from Hydrological Database.}
 \usage{
-fetch_hydb(table, network = NULL, tbl_only = FALSE, ...)
+fetch_hydb(table, ..., network = NULL, mydb = hydb_connect(), tbl_only = TRUE)
 }
 \arguments{
 \item{table}{A character vector of table names, e.g. 'station_metadata', 'flow_dv', etc.}
 
+\item{...}{Option to pass calls to \code{dplyr::filter()}.}
+
 \item{network}{NULL. Used in shiny application.}
 
-\item{tbl_only}{A logical indicating whether to \link[dplyr]{collect} the table. default (FALSE).}
-
-\item{...}{Option to pass calls to \code{dplyr::filter()}.}
+\item{tbl_only}{A logical indicating whether to \link[dplyr]{collect} the table, default (TRUE).}
 }
 \value{
 A data.frame

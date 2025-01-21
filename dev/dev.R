@@ -82,3 +82,9 @@ for (i in c('flow_iv', 'flow_dv', 'flow_obs',
   print(collect(tbl(mydb, i)))
 
 }
+
+
+## dealing with access db
+
+RODBC::odbcConnectAccess2007(r"{C:/Users/joshualerickson/USDA/Northern Region Hydrology - Documents/data-madness/forests/NPCW/wtemp/npcw_temp_2020_2024/NezClearwater_Temp_data_FY20-24.accdb}")
+

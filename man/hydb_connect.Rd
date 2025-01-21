@@ -4,7 +4,10 @@
 \alias{hydb_connect}
 \title{Connect to hydb}
 \usage{
-hydb_connect()
+hydb_connect(path = NULL)
+}
+\arguments{
+\item{path}{A character vector file path to \code{.sqlite} database.}
 }
 \value{
 Nothing. Side effect connecting to hydb.
@@ -13,5 +16,5 @@ Nothing. Side effect connecting to hydb.
 Connect to hydb
 }
 \note{
-Must be a memeber of the \verb{USDA Northern Region Hydrology} sharepoint group.
+Must be a member of the \verb{USDA Northern Region Hydrology} sharepoint group if \code{path = NULL}.
 }
