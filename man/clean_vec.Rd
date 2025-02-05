@@ -13,6 +13,9 @@ clean_vec(x, refactor = FALSE, dupe_count = FALSE)
 
 \item{dupe_count}{logical.}
 }
+\value{
+A vector with clean names
+}
 \description{
 Most of the internals are from \code{janitor::clean_names()}
 }

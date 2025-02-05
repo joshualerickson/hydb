@@ -2,14 +2,15 @@
 #'
 #' @param table A character vector of table names, e.g. 'station_metadata', 'flow_dv', etc.
 #' @param network NULL. Used in shiny application.
+#' @param mydb A connection object to a .sqlite db.
 #' @param tbl_only A logical indicating whether to \link[dplyr]{collect} the table, default (TRUE).
 #' @param ... Option to pass calls to `dplyr::filter()`.
-#' @importFrom dplyr tbl
+#' @importFrom dplyr tbl "%>%"
 #'
 #' @return A data.frame
 #' @export
 #'
-fetch_hydb <- function(table,
+hydb_fetch <- function(table,
                        ...,
                        network = NULL,
                        mydb = hydb_connect(),
@@ -101,13 +102,14 @@ fetch_hydb <- function(table,
 #' hydb Table List
 #'
 #' @param network  NULL. Used in shiny application.
+#' @param ... Arguments to pass to `hydb_connect()`
 #'
 #' @return A list of tables in the hydb database.
 #' @export
 #'
 #'
 
-hydb_tables <- function(network = NULL) {
+hydb_tables <- function(network = NULL, ...) {
 
   if(!is.null(network)){
 
@@ -116,7 +118,7 @@ hydb_tables <- function(network = NULL) {
   } else {
 
 
-    mydb <- hydb_connect()
+    mydb <- hydb_connect(...)
 
   }
 

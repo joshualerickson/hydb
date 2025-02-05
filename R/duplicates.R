@@ -1,68 +1,28 @@
-#' Handling Duplicates
+
+#' Clean Spatial Duplicates
 #'
-#' @param data Data selected in GUI.
-#' @param existing_data Data with same sid in hydb.
+#' @description
+#' Get cleaned duplicates.
 #'
-#' @return Nothing. Side-effect to database.
-hydb_handling_duplicates <- function(data, existing_data) {
+#' @param point An sf POINT object
+#' @importFrom dplyr "%>%"
+#'
+#' @return An sf object
+hydb_clean_duplicate_metadata <- function(point) {
 
-  # Get the new rows that are not duplicates
-  new_rows <- dplyr::anti_join(data, existing_data)
+  eq_list <- sf::st_equals(point)
 
-  if (nrow(new_rows) > 0) {
+  group_mapping <- sapply(seq_along(eq_list), function(i) {min(unlist(eq_list[[i]]))})
 
-    showModal(modalDialog(
-        title = sprintf("%d new rows added to the table.", nrow(new_rows)),
-          footer = tagList(
-            actionButton('continue', 'Continue', icon = NULL),
-            modalButton('Cancel')),
-        easyClose = TRUE,
-        tags$style(
-          type = 'text/css',
-          '.modal-dialog {
-        width: fit-content !important;}'
-        )
-        ))
-
-
-    new_rows
-
-  } else {
-
-    showModal(modalDialog(
-      title = 'No new rows were added, all were duplicates!',
-      footer = tagList(
-        modalButton('Ok', icon = NULL)),
-      easyClose = TRUE,
-      tags$style(
-        type = 'text/css',
-        '.modal-dialog {
-        width: fit-content !important;}'
-      )))
-
-  }
-
+  point <- point %>%
+    dplyr::mutate(group_id = group_mapping) %>%
+    dplyr::group_by(group_id) %>%
+    dplyr::summarise(dplyr::across(dplyr::where(is.character), ~paste(unique(.), collapse = ", "), .names = "{col}"),
+                     dplyr::across(dplyr::where(is.numeric), first),
+                     geometry = sf::st_union(geometry)) %>%
+    dplyr::ungroup() %>%
+    dplyr::select(-group_id)
 }
-
-hydb_remove_duplicates_from_db <- function(hydb) {
-
-  mydb <- hydb_connect()
-
-  tables <- DBI::dbListTables(mydb)
-
-  for (table in tables) {
-
-    data <- dplyr::tbl(mydb, table)
-
-    deduplicated_data <- data[!duplicated(data), ]
-
-    DBI::dbWr
-
-  }
-
-}
-
-
 
 
 

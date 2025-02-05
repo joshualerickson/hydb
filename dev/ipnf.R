@@ -108,6 +108,7 @@ wtemp_ipnf_dv  %>%
 DBI::dbAppendTable(mydb, 'wtemp_dv', wtemp_ipnf_dv)
 
 south_zone <- fetch_hydb('wtemp_iv', tbl_only = T)
+
 south_zone <- south_zone %>% filter(substring(sid, 1, 6) == '010404') %>% collect() %>% mutate(dt = as_datetime(dt))
 
 south_zone_dv <- hydb_daily_transform(south_zone) %>% filter(statistic_type_code != '00006')
@@ -177,3 +178,11 @@ write_csv(stations %>% filter(forest == 'Idaho Panhandle National Forests',
 
 
 
+ipnf_wtemp_dv_pivot_slide <- ipnf_wtemp_dv_pivot %>%
+  group_by(sid, year = year(date)) %>%
+  mutate(across(max:median, ~slider::slide_index_dbl(.,.i = date, ~mean(.x, na.rm = T), .after = 7), .names = "{col}_7day_mean"))
+
+ipnf_wtemp_dv_pivot_slide %>%
+  ggplot(aes(date, max_7day_mean)) +
+  geom_line() +
+  facet_wrap(~sid, scales = 'free')

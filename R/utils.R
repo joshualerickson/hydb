@@ -1,171 +1,3 @@
-#' @title Error Catch paramCd names
-#' @param data A user selected data.frame with selected columns.
-#' @param table_type vector of parameter_cd
-#' @return A logical vector.
-#' @noRd
-#'
-error_catching_param_names <- function(data, table_type){
-
-### these switches could use some help from tolower....
-
- change_col_names <-
-
-   switch(gsub('_.*', '', table_type),
-
-    'flow' =
-      tryCatch({data %>% dplyr::rename_with(~dplyr::case_when(
-    .x == "discharge" ~ paste0(sub('.*\\_', '', table_type), "_00060"),
-    .x == "Flow" ~ paste0(sub('.*\\_', '', table_type), "_00060"),
-    .x == "flow" ~ paste0(sub('.*\\_', '', table_type), "_00060"),
-    .x == "flow_" ~ paste0(sub('.*\\_', '', table_type), "_00060"),
-    .x == "flow_00060" ~ paste0(sub('.*\\_', '', table_type), "_00060"),
-    .x == "q" ~ paste0(sub('.*\\_', '', table_type), "_00060"),
-    stringr::str_detect(.x, 'discharge') ~ paste0(sub('.*\\_', '', table_type), "_00060"),
-    .x == "Q" ~ paste0(sub('.*\\_', '', table_type), "_00060"),
-    .x == "discharge_cfs" ~ paste0(sub('.*\\_', '', table_type), "_00060"),
-    .x == 'cfs' ~ paste0(sub('.*\\_', '', table_type), "_00060"),
-    stringr::str_detect(.x, 'date') & gsub("^[^_]*_", '', table_type) %in% c('dv', 'obs') ~ 'date',
-    stringr::str_detect(.x, 'date') & gsub("^[^_]*_", '', table_type) %in% c('iv') ~ 'dt',
-    stringr::str_detect(.x, 'remarks|comments|notes') & gsub("^[^_]*_", '', table_type) %in% c('dv', 'obs') ~ 'comments',
-    stringr::str_detect(.x, 'type|statistic_code') & gsub("^[^_]*_", '', table_type) %in% c('dv') ~ 'statistic_type_code',
-    TRUE ~ .x))},
-error=function(cond) {
-  # Choose a return value in case of error
-  return(NA)
-}),
-
-    'tss' = tryCatch({data %>% dplyr::rename_with(~dplyr::case_when(
-    .x == "tss" ~ paste0(sub('.*\\_', '', table_type), "_70288"),
-    .x == "tss_" ~ paste0(sub('.*\\_', '', table_type), "_70288"),
-    .x == "total_suspended_sediment" ~ paste0(sub('.*\\_', '', table_type), "_70288"),
-    .x == 'tss_mg_l' ~ paste0(sub('.*\\_', '', table_type), "_70288"),
-    .x == "sediment" ~ paste0(sub('.*\\_', '', table_type), "_70288"),
-    .x == 'sed' ~ paste0(sub('.*\\_', '', table_type), "_70288"),
-    stringr::str_detect(.x, 'date') & gsub("^[^_]*_", '', table_type) %in% c('dv', 'obs') ~ 'date',
-    stringr::str_detect(.x, 'date') & gsub("^[^_]*_", '', table_type) %in% c('iv') ~ 'dt',
-    TRUE ~ .x))},
-error=function(cond) {
-  # Choose a return value in case of error
-  return(NA)
-}),
-
-    'precip' = tryCatch({data %>% dplyr::rename_with(~dplyr::case_when(
-    .x == "precip" ~ paste0(sub('.*\\_', '', table_type), "_00045"),
-    .x == 'ppt' ~ paste0(sub('.*\\_', '', table_type), "_00045"),
-    .x == "precipitation" ~ paste0(sub('.*\\_', '', table_type), "_00045"),
-    stringr::str_detect(.x, 'date') & gsub("^[^_]*_", '', table_type) %in% c('dv', 'obs') ~ 'date',
-    stringr::str_detect(.x, 'date') & gsub("^[^_]*_", '', table_type) %in% c('iv') ~ 'dt',
-    TRUE ~ .x))},
-error=function(cond) {
-  # Choose a return value in case of error
-  return(NA)
-}),
-
-    'stage' = tryCatch({data %>% dplyr::rename_with(~dplyr::case_when(
-    .x == "GH" ~ paste0(sub('.*\\_', '', table_type), "_00065"),
-    .x == "gh" ~ paste0(sub('.*\\_', '', table_type), "_00065"),
-    .x == "stage" ~ paste0(sub('.*\\_', '', table_type), "_00065"),
-    .x == "stage_height" ~ paste0(sub('.*\\_', '', table_type), "_00065"),
-    grepl("gage", .x) ~ paste0(sub('.*\\_', '', table_type), "_00065"),
-    stringr::str_detect(.x, 'date') & gsub("^[^_]*_", '', table_type) %in% c('dv', 'obs') ~ 'date',
-    stringr::str_detect(.x, 'date') & gsub("^[^_]*_", '', table_type) %in% c('iv') ~ 'dt',
-    .x == 'gage' ~ paste0(sub('.*\\_', '', table_type), "_00065"),
-    TRUE ~ .x)
-  )},
-error=function(cond) {
-  # Choose a return value in case of error
-  return(NA)
-}),
-
-'airtemp' = tryCatch({data %>% dplyr::rename_with(~dplyr::case_when(
-  grepl("air_temperature", .x) ~ paste0(sub('.*\\_', '', table_type), "_00021"),
-  grepl("air_temp", .x) ~ paste0(sub('.*\\_', '', table_type), "_00021"),
-  stringr::str_detect(.x, 'temp') ~ paste0(sub('.*\\_', '', table_type), "_00021"),
-  .x == 'airtemp' ~ paste0(sub('.*\\_', '', table_type), "_00021"),
-  .x == 'airtemp_' ~ paste0(sub('.*\\_', '', table_type), "_00021"),
-  .x == 'airtemp_00021' ~ paste0(sub('.*\\_', '', table_type), "_00021"),
-  stringr::str_detect(.x, 'date') & gsub("^[^_]*_", '', table_type) %in% c('dv', 'obs') ~ 'date',
-  stringr::str_detect(.x, 'date') & gsub("^[^_]*_", '', table_type) %in% c('iv') ~ 'dt',
-  TRUE ~ .x)
-)},
-error=function(cond) {
-  # Choose a return value in case of error
-  return(NA)
-}),
-
-'wtemp' = tryCatch({data %>% dplyr::rename_with(~dplyr::case_when(
-  .x == 'h2o_temperature_f' ~ paste0(sub('.*\\_', '', table_type), "_00011"),
-  stringr::str_detect(.x, 'temp') ~ paste0(sub('.*\\_', '', table_type), "_00011"),
-  .x == 'wtemp' ~ paste0(sub('.*\\_', '', table_type), "_00011"),
-  .x == 'wtemp_' ~ paste0(sub('.*\\_', '', table_type), "_00011"),
-  .x == 'wtemp_00011' ~ paste0(sub('.*\\_', '', table_type), "_00011"),
-  stringr::str_detect(.x, 'date') & gsub("^[^_]*_", '', table_type) %in% c('dv', 'obs') ~ 'date',
-  stringr::str_detect(.x, 'date') & gsub("^[^_]*_", '', table_type) %in% c('iv') ~ 'dt',
-  TRUE ~ .x)
-)},
-error=function(cond) {
-  # Choose a return value in case of error
-  return(NA)
-}),
-
-'svel' = tryCatch({data %>% dplyr::rename_with(~dplyr::case_when(
-  .x == 'vel' ~ paste0(sub('.*\\_', '', table_type), "_72255"),
-  stringr::str_detect(.x, 'velocity') ~ paste0(sub('.*\\_', '', table_type), "_72255"),
-  stringr::str_detect(.x, 'fps') ~ paste0(sub('.*\\_', '', table_type), "_72255"),
-  .x == 'mean_vel' ~ paste0(sub('.*\\_', '', table_type), "_72255"),
-  stringr::str_detect(.x, 'date') & gsub("^[^_]*_", '', table_type) %in% c('dv', 'obs') ~ 'date',
-  TRUE ~ .x)
-)},
-error=function(cond) {
-  # Choose a return value in case of error
-  return(NA)
-}),
-
-'swidth' = tryCatch({data %>% dplyr::rename_with(~dplyr::case_when(
-  stringr::str_detect(.x, 'width') ~ paste0(sub('.*\\_', '', table_type), "_00004"),
-  .x == 'stream_width' ~ paste0(sub('.*\\_', '', table_type), "_00004"),
-  stringr::str_detect(.x, 'date') & gsub("^[^_]*_", '', table_type) %in% c('dv', 'obs') ~ 'date',
-  TRUE ~ .x)
-)},
-error=function(cond) {
-  # Choose a return value in case of error
-  return(NA)
-}),
-
-'sarea' = tryCatch({data %>% dplyr::rename_with(~dplyr::case_when(
-  .x == 'stream_area' ~ paste0(sub('.*\\_', '', table_type), "_82632"),
-  stringr::str_detect(.x, 'area') ~ paste0(sub('.*\\_', '', table_type), "_82632"),
-  .x == 'mean_area' ~ paste0(sub('.*\\_', '', table_type), "_82632"),
-  stringr::str_detect(.x, 'date') & gsub("^[^_]*_", '', table_type) %in% c('dv', 'obs') ~ 'date',
-  TRUE ~ .x)
-)},
-error=function(cond) {
-  # Choose a return value in case of error
-  return(NA)
-})
- )
-
-
- if(is.list(change_col_names)){
-
-  col_name_logic <-
-     switch(
-       sub('.*\\_', '', table_type),
-       'dv' = all(names(change_col_names) %in% c(paste0('dv_', param_cd(table_type)), 'date')),
-       'iv' = all(names(change_col_names) %in% c(paste0('iv_', param_cd(table_type)), 'dt')),
-       'obs' = all(names(change_col_names) %in% c(paste0('obs_', param_cd(table_type)), 'date', 'time'))
-     )
-
- } else {
-
-  col_name_logic <- FALSE
-
- }
-
-
- list(col_name_logic, change_col_names)
-
-}
 
 
 #' @param table_type A character.
@@ -229,6 +61,8 @@ stat_cd_to_name <- function(stat_type) {
 #' @param x a vector of strings or factors
 #' @param refactor if `x` is a factor, return a ref-factored factor? Default: `FALSE` == return character vector.
 #' @param dupe_count logical.
+#' @return A vector with clean names
+#' @importFrom dplyr "%>%"
 #'
 clean_vec <- function (x, refactor=FALSE, dupe_count = FALSE) {
 
@@ -266,47 +100,6 @@ clean_vec <- function (x, refactor=FALSE, dupe_count = FALSE) {
 }
 
 
-#' Connect to hydb
-#'
-#' @param path A character vector file path to `.sqlite` database.
-#' @return Nothing. Side effect connecting to hydb.
-#' @export
-#'
-#' @note Must be a member of the `USDA Northern Region Hydrology` sharepoint group if `path = NULL`.
-
-hydb_connect <- function(path = NULL) {
-
-  if(is.null(path)){
-  windows_path <- normalizePath(file.path(Sys.getenv("HOMEDRIVE"), Sys.getenv("HOMEPATH")), winslash = .Platform$file.sep)
-
-  path <- file.path('/USDA/Northern Region Hydrology - Documents/data-madness/hydb')
-
-  mydb <- DBI::dbConnect(RSQLite::SQLite(), paste0(windows_path,path,"/hydb.sqlite"))
-
-  } else {
-
-  mydb <- DBI::dbConnect(RSQLite::SQLite(), path)
-
-  }
-
-  assign('mydb', mydb)
-
-  mydb
-
-}
-
-#' Disconnect to hydb
-#'
-#' @return Nothing. Side effect connecting to hydb.
-#' @export
-#'
-#' @note Must be a member of the `USDA Northern Region Hydrology` sharepoint group.
-
-hydb_disconnect <- function() {
-
-  DBI::dbDisconnect(mydb)
-
-}
 
 
 #' comids
@@ -333,141 +126,120 @@ comids <- function(point) {
   nld <- jsonlite::fromJSON(file.path(tempdir(),"nld_tmp.json"))
 
 }
-#' Clean Spatial Duplicates
-#'
-#' @description
-#' Get cleaned duplicates.
-#'
-#' @param point An sf POINT object
-#'
-#' @return An sf object
-#' @export
-#'
-hydb_clean_duplicate_metadata <- function(point) {
 
-  eq_list <- sf::st_equals(point)
+#'Water Year These functions are hi-jacked from smwrBase package.
+#'
+#'Create an ordered factor or numeric values from a vector of dates based on
+#'the water year.
+#' @noRd
+#' @param x an object of class "Date" or "POSIXt." Missing values are permitted and
+#'result in corresponding missing values in the output.
+#' @param wy_month A numeric indicating the month the water year begins.
+#' @param numeric a logical value that indicates whether the returned values
+#'should be numeric \code{TRUE} or an ordered factor \code{FALSE}. The default
+#'value is \code{FALSE}.
+#' @return An ordered factor or numeric vector corresponding to the water year.
+#' @note The water year is defined as the period from October 1 to September 30.
+#'The water year is designated by the calendar year in which it ends. Thus, the
+#'year ending September 30, 1999, is the "1999 water year."
+#' @seealso
+#Flip for production/manual
+#'\code{\link[lubridate]{year}}
+#\code{year} (in lubridate package)
 
-  group_mapping <- sapply(seq_along(eq_list), function(i) {min(unlist(eq_list[[i]]))})
-
-  point <- point %>%
-    dplyr::mutate(group_id = group_mapping) %>%
-    dplyr::group_by(group_id) %>%
-    dplyr::summarise(dplyr::across(dplyr::where(is.character), ~paste(unique(.), collapse = ", "), .names = "{col}"),
-              across(dplyr::where(is.numeric), first),
-              geometry = sf::st_union(geometry)) %>%
-    dplyr::ungroup() %>%
-    dplyr::select(-group_id)
+waterYear <- function(x, wy_month = 10, numeric=FALSE) {
+  ## Coding history:
+  ##    2005Jul14 DLLorenz Initial dated verion
+  ##    2010Feb17 DLLorenz Added option to return numerics
+  ##    2011Jun07 DLLorenz Conversion to R
+  ##    2012Aug11 DLLorenz Integer fixes
+  ##    2013Feb15 DLLorenz Prep for gitHub
+  ##
+  x <- as.POSIXlt(x)
+  yr <- x$year + 1900L
+  mn <- x$mon + 1L
+  ## adjust for water year
+  yr <- yr + ifelse(mn < as.integer(wy_month), 0L, 1L)
+  if(numeric)
+    return(yr)
+  ordered(yr)
 }
 
-#' Setup Metadata
+
+#' Add Counts
+#' @description Adds counts of observation per water and month
 #'
-#' @param point An sf POINT cleaned.
+#' @param data A daily value df
 #'
-#' @return A `tibble()` ready for appending to hydb.
-#' @export
-#'
-hydb_setup_metadata <- function(point) {
+#' @return counts within df
+#' @importFrom dplyr "%>%"
+#' @noRd
+add_date_counts <- function(data) {
 
-  if(any(!names(point) %in% c('station_nm', 'purpose', 'comments', 'geometry'))) stop(message('need corrent column names'))
 
-  # now give each station its sid
-  # read in the admin districts
+  data <- dplyr::group_by(data, sid, wy) %>%
+    dplyr::add_count(name = 'obs_per_wy') %>%
+    dplyr::ungroup() %>%
+    dplyr::group_by(sid, wy, month) %>%
+    dplyr::add_count(name = 'obs_per_month') %>%
+    dplyr::ungroup()
 
-  admin_districts <- read_sf('Z:/simple_features/lands/admin_units_district.shp')  %>%
-    sf::st_transform(4326) %>%
-    sf::st_make_valid() %>%
-    dplyr::select(sid = DISTRICTOR,
-                  forest = FORESTNAME,
-                  district = DISTRICTNA)
+  if(sub('_.*', '', colnames(data)[2]) == 'iv') {
 
-  meta_data <- point %>%
-    st_transform(4326) %>%
-    st_make_valid()
-
-  meta_data_copy <- meta_data %>%
-    st_intersection(admin_districts)
-
-  if(any(!meta_data$station_nm %in% meta_data_copy$station_nm)){
-    site_off_fs_land <- meta_data[!meta_data$station_nm %in% meta_data_copy$station_nm,] %>%
-      dplyr::mutate(
-        sid = admin_districts[sf::st_nearest_feature(., admin_districts),]$sid,
-        forest = admin_districts[sf::st_nearest_feature(., admin_districts),]$forest,
-        district = admin_districts[sf::st_nearest_feature(., admin_districts),]$district,
-        comments = paste0('Off NFS Land; ',comments)
-      )
-
-    meta_data_copy <- meta_data_copy %>% dplyr::bind_rows(site_off_fs_land) %>% sf::st_as_sf()
-
+    data <- data %>%
+      dplyr::group_by(sid, wy, month, day) %>%
+      dplyr::add_count(name = 'obs_per_day') %>%
+      dplyr::ungroup()
   }
 
-
-  meta_data_coordinates <- meta_data_copy %>% bind_cols(tibble(Long = st_coordinates(.)[,1],Lat = st_coordinates(.)[,2])) %>% st_drop_geometry()
-  meta_data_copy <- meta_data_copy %>% bind_cols(meta_data_coordinates %>% select(Long, Lat))
-
-  #check to see if it already exists and also get a unique suffix
-
-  md <- fetch_hydb('station_metadata', tbl_only = T)
-
-  forests_filter <- unique(meta_data_copy$forest)
-
-  md <- md %>% dplyr::filter(forest %in% forests_filter) %>% dplyr::collect()
-
-  md_start <- max(as.numeric(substr(md$sid, 7, nchar(md$sid))))
-
-
-  #now add unique 5-digit code
-
-  meta_data_copy <- meta_data_copy %>%
-    arrange(desc(Lat)) %>%
-    mutate(sid = paste0(sid, sprintf("%05d", md_start + row_number())))
-
-  #then run to get COMID
-  comids_nwis <- meta_data_copy %>%
-    split(.$sid) %>%
-    purrr::map(~comids(.)$features$properties$identifier)
-
-  comids_nwis <- tibble(COMID = as.character(comids_nwis),
-                        sid = names(comids_nwis))
-
-  meta_data_final <- meta_data_copy  %>% left_join(comids_nwis) %>% sf::st_drop_geometry()
-
+  data
 
 }
 
 
-#' Transform IV to DV
-#'
-#' @param data A data.frame
-#'
-#' @return A `tibble()`.
-#' @export
-#' @note Need to have columns `dt`, `sid` and `iv_*` and `iv_*` needs to be column position 2.
 
-hydb_daily_transform <- function(data) {
 
-  data_add_daily_stats <-  data %>%
-    dplyr::mutate(date = lubridate::date(dt)) %>%
-    dplyr::group_by(sid, date) %>%
-    dplyr::summarise(dplyr::across(dplyr::any_of(dplyr::starts_with('iv_')),
-                     list(
-                       sum = ~sum(.x, na.rm = TRUE),
-                       max = ~max(.x, na.rm = TRUE),
-                       min = ~min(.x, na.rm = TRUE),
-                       mean = ~mean(.x, na.rm = TRUE),
-                       median = ~median(.x, na.rm = TRUE),
-                       stdev = ~sd(.x, na.rm = TRUE),
-                       coef_var = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm = TRUE))))  %>%
-    dplyr::ungroup() %>%
-    tidyr::pivot_longer(dplyr::starts_with('iv_'))%>%
-    dplyr::mutate(statistic_type_code = stat_cd(name))
+#' water year to months
+#' @description Change wy_month to doy.
+#' @param wy_month A numeric
+#' @param leap Logical
+#' @return A numeric value
+#' @noRd
+month_to_doy <- function(wy_month, leap = FALSE) {
 
-  param_type <- paste0('dv',unique(substr(data_add_daily_stats$name, 3, 8)))
 
-  variable_to_rename <- 'value'
-
-  data_add_daily_stats %>%
-  dplyr::rename(!!param_type := !!rlang::sym('value')) %>%
-  dplyr::select(-name)
+  ifelse(isTRUE(leap),
+         dplyr::case_when(wy_month == 1 ~ 1,
+                          wy_month == 2 ~ 32,
+                          wy_month == 3 ~ 61,
+                          wy_month == 4 ~ 92,
+                          wy_month == 5 ~ 122,
+                          wy_month == 6 ~ 153,
+                          wy_month == 7 ~ 183,
+                          wy_month == 8 ~ 214,
+                          wy_month == 9 ~ 245,
+                          wy_month == 10 ~ 275,
+                          wy_month == 11 ~ 306,
+                          wy_month == 12 ~ 336,
+                          TRUE ~ NA_real_)
+         ,
+         dplyr::case_when(wy_month == 1 ~ 1,
+                          wy_month == 2 ~ 32,
+                          wy_month == 3 ~ 60,
+                          wy_month == 4 ~ 91,
+                          wy_month == 5 ~ 122,
+                          wy_month == 6 ~ 152,
+                          wy_month == 7 ~ 182,
+                          wy_month == 8 ~ 213,
+                          wy_month == 9 ~ 244,
+                          wy_month == 10 ~ 274,
+                          wy_month == 11 ~ 305,
+                          wy_month == 12 ~ 335,
+                          TRUE ~ NA_real_)
+  )
 
 }
+
+
+
 
