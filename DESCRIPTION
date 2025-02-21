@@ -20,6 +20,9 @@ Imports:
     sf,
     purrr,
     stringr,
-    stringdist, 
+    stringdist,
     httr,
-    jsonlite
+    jsonlite,
+    cli
+Depends: 
+    R (>= 2.10)

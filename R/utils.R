@@ -241,5 +241,14 @@ month_to_doy <- function(wy_month, leap = FALSE) {
 }
 
 
+yesno <- function(msg, .envir = parent.frame()) {
+  yeses <- c("Yes", "Definitely", "For sure", "Yup", "Yeah", "Of course", "Absolutely")
+  nos <- c("No way", "Not yet", "No", "Nope")
 
+  cli::cli_inform(msg, .envir = .envir)
+  qs <- c(sample(yeses, 1), sample(nos, 2))
+  rand <- sample(length(qs))
+
+  utils::menu(qs[rand]) != which(rand == 1)
+}
 

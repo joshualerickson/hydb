@@ -50,13 +50,7 @@ hydb_setup_metadata <- function(point) {
 
   # now give each station its sid
   # read in the admin districts
-
-  admin_districts <- sf::read_sf('Z:/simple_features/lands/admin_units_district.shp')  %>%
-    sf::st_transform(4326) %>%
-    sf::st_make_valid() %>%
-    dplyr::select(sid = DISTRICTOR,
-                  forest = FORESTNAME,
-                  district = DISTRICTNA)
+  # will need to change from local drive to data at some point
 
   meta_data <- point %>%
     sf::st_transform(4326) %>%
@@ -84,20 +78,25 @@ hydb_setup_metadata <- function(point) {
 
   #check to see if it already exists and also get a unique suffix
 
-  md <- hydb_fetch('station_metadata', tbl_only = T)
+  md_stations <- hydb_fetch('station_metadata', tbl_only = F)
 
-  forests_filter <- unique(meta_data_copy$forest)
+  district_filter <- unique(meta_data_copy$district)
 
-  md <- md %>% dplyr::filter(forest %in% forests_filter) %>% dplyr::collect()
+  md <- md_stations %>% dplyr::filter(district %in% district_filter) %>% dplyr::collect()
 
   md_start <- max(as.numeric(substr(md$sid, 7, nchar(md$sid))))
-
 
   #now add unique 5-digit code
 
   meta_data_copy <- meta_data_copy %>%
     dplyr::arrange(dplyr::desc(Lat)) %>%
     dplyr::mutate(sid = paste0(sid, sprintf("%05d", md_start + dplyr::row_number())))
+
+  if(any(meta_data$station_nm %in% md_stations$station_nm)){
+    if (yesno(paste0('There is ',length(meta_data$station_nm %in% md_stations$station_nm) ,' `station_nm` named the same.\n Do you wnat to continue?'))) {
+      return(invisible())
+    }
+  }
 
   #then run to get COMID
   comids_nwis <- meta_data_copy %>%

@@ -3,7 +3,6 @@
 ^README\.Rmd$
 ^\.github$
 ^LICENSE\.md$
-data
 slides
 slide_letterbox
 dev
