@@ -78,7 +78,7 @@ hydb_setup_metadata <- function(point) {
 
   #check to see if it already exists and also get a unique suffix
 
-  md_stations <- hydb_fetch('station_metadata', tbl_only = F)
+  md_stations <- hydb_fetch('station_metadata', collect = T)
 
   district_filter <- unique(meta_data_copy$district)
 
@@ -115,7 +115,7 @@ hydb_setup_metadata <- function(point) {
 }
 
 
-#' Transform IV to DV
+#' Transform IV to DV or DV to IV
 #'
 #' @param data A data.frame
 #'
@@ -171,6 +171,12 @@ hydb_daily_transform <- function(data) {
   dplyr::mutate(statistic_type_code = stat_cd_to_name(statistic_type_code)) %>%
   tidyr::pivot_wider(values_from = dplyr::starts_with('dv_'), names_from = statistic_type_code)
 
+  } else if (any(!is.na(match(colnames(data), c('sum', 'max', 'min', 'mean', 'median', 'stdev', 'coef_var'))))) {
+
+    data %>%
+      tidyr::pivot_longer(sum:coef_var) %>%
+      dplyr::mutate(statistic_type_code = stat_cd(name))
+
   } else {
 
     message('Not used for tables other than iv_ or dv_')
@@ -178,6 +184,75 @@ hydb_daily_transform <- function(data) {
 
 }
 
+
+#' Transform IV to DV
+#'
+#' @param data A data.frame
+#'
+#' @return A `tibble()`.
+#' @export
+#' @importFrom dplyr "%>%"
+#' @note Need to have columns `dt`, `sid` and `iv_*` and `iv_*` needs to be column position 2.
+
+hydb_qaqc <- function(data) {
+
+
+  data <- data %>%
+    dt_to_tibble()
+
+  if(any(startsWith(colnames(data), 'iv'))) {
+
+    colname <- colnames(data)[startsWith(colnames(data), 'iv')]
+
+    data_add_daily_stats <-  data %>%
+      dplyr::mutate( date = lubridate::as_date(dt)) %>%
+      dplyr::group_by(sid, date) %>%
+      dplyr::mutate(dplyr::across(dplyr::any_of(dplyr::starts_with('iv_')),
+                                  list(
+                                    sum = ~sum(.x, na.rm = TRUE),
+                                    max = ~max(.x, na.rm = TRUE),
+                                    min = ~min(.x, na.rm = TRUE),
+                                    mean = ~mean(.x, na.rm = TRUE),
+                                    median = ~median(.x, na.rm = TRUE),
+                                    stdev = ~sd(.x, na.rm = TRUE),
+                                    coef_var = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm = TRUE))))  %>%
+      dplyr::slice(1) %>%
+      dplyr::ungroup() %>%
+      dplyr::select(-dplyr::all_of(c(colname, 'dt'))) %>%
+      dplyr::relocate(date, dplyr::starts_with('iv_')) %>%
+      tidyr::pivot_longer(dplyr::starts_with('iv_'))%>%
+      dplyr::mutate(statistic_type_code = stat_cd(name))
+
+    param_type <- paste0('dv',unique(substr(data_add_daily_stats$name, 3, 8)))
+
+    variable_to_rename <- 'value'
+
+    data_add_daily_stats %>%
+      dplyr::rename(!!param_type := !!rlang::sym('value')) %>%
+      dplyr::mutate(param = colname) %>%
+      dplyr::select(-name)  %>%
+      dplyr::mutate(statistic_type_code = stat_cd_to_name(statistic_type_code)) %>%
+      tidyr::pivot_wider(values_from = dplyr::starts_with('dv_'), names_from = statistic_type_code)%>%
+      dplyr::relocate(date, sid, param, sum:coef_var)
+
+  } else if (any(startsWith(colnames(data), 'dv'))) {
+
+    data %>%
+      dplyr::mutate(statistic_type_code = stat_cd_to_name(statistic_type_code)) %>%
+      tidyr::pivot_wider(values_from = dplyr::starts_with('dv_'), names_from = statistic_type_code)
+
+  } else if (any(!is.na(match(colnames(data), c('sum', 'max', 'min', 'mean', 'median', 'stdev', 'coef_var'))))) {
+
+    data %>%
+      tidyr::pivot_longer(sum:coef_var) %>%
+      dplyr::mutate(statistic_type_code = stat_cd(name))
+
+  } else {
+
+    message('Not used for tables other than iv_ or dv_')
+  }
+
+}
 #' Convert dt to tibble
 #'
 #' @param data a data.frame and data.table
@@ -276,19 +351,19 @@ hydb_station_info <- function(data, hydbtables = 'all') {
 
     for(i in table) {
 
-    rows <- hydb_fetch(table = i, sid %in% stored_sid) %>%
+    rows <- hydb_fetch(table = i, sid %in% stored_sid, collect = FALSE) %>%
                    dplyr::mutate(n = n()) %>%
                    utils::head(1) %>%
                    dplyr::pull(n)
 
     if(length(rows) > 0){
 
-    info <- hydb_fetch(table = i, sid %in% stored_sid) %>% utils::head(1) %>%  dplyr::collect()
+    info <- hydb_fetch(table = i, sid %in% stored_sid, collect = FALSE) %>% utils::head(1) %>%  dplyr::collect()
 
     colnames1 <- colnames(info)[!is.na(match(colnames(info), c('dt', 'date')))]
 
 
-    years <- hydb_fetch(table = i, sid %in% stored_sid) %>%
+    years <- hydb_fetch(table = i, sid %in% stored_sid, collect = FALSE) %>%
         dplyr::group_by(year = lubridate::year(.data[[colnames1]])) %>%
         slice_hydb(1) %>%
         dplyr::ungroup() %>%
@@ -367,6 +442,8 @@ hydb_station_info <- function(data, hydbtables = 'all') {
   }
 }
 
+
+
 #' Find Closest Match
 #'
 #' @param text A character string
@@ -378,7 +455,7 @@ find_closest_match <- function(text, keys) {
 
   cleaned_text <- gsub("[^a-zA-Z]", " ", gsub("_", " ", text))
 
-  distances <- stringdist::stringdist(cleaned_text, keys, method = 'jw')
+  distances <- stringdist::stringdist(cleaned_text, keys, method = 'jw', p = 0.1)
 
   closest_match <- keys[which.min(distances)]
 

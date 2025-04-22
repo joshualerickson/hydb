@@ -3,7 +3,7 @@
 #' @param table A character vector of table names, e.g. 'station_metadata', 'flow_dv', etc.
 #' @param network NULL. Used in shiny application.
 #' @param mydb A connection object to a .sqlite db.
-#' @param tbl_only A logical indicating whether to \link[dplyr]{collect} the table, default (TRUE).
+#' @param collect A logical indicating whether to \link[dplyr]{collect} the table, default (TRUE).
 #' @param ... Option to pass calls to `dplyr::filter()`.
 #' @importFrom dplyr tbl "%>%"
 #'
@@ -14,7 +14,7 @@ hydb_fetch <- function(table,
                        ...,
                        network = NULL,
                        mydb = hydb_connect(),
-                       tbl_only = TRUE) {
+                       collect = TRUE) {
 
 
   if(!is.null(network)){
@@ -53,25 +53,8 @@ hydb_fetch <- function(table,
 
   filters <- rlang::enquos(...)
 
-  if(tbl_only) {
+  if(collect) {
 
-    if(!grepl(c('metadata|codes'), table)){
-
-      fetch_table <- switch(sub('.*\\_', '', table),
-                      'dv' = fetch_table %>%
-                        dplyr::mutate(date = lubridate::as_date(date)),
-                      'iv' = fetch_table %>%
-                        dplyr::mutate(dt = lubridate::as_datetime(dt)),
-                      'obs' = fetch_table %>%
-                        dplyr::mutate(date = lubridate::as_date(date)))
-
-
-    }
-
-      fetch_table <- fetch_table %>%
-                     dplyr::filter(!!!filters)
-
-  } else {
 
     fetch_table <- fetch_table %>%
       dplyr::filter(!!!filters) %>%
@@ -92,6 +75,25 @@ hydb_fetch <- function(table,
     }
 
     DBI::dbDisconnect(mydb)
+
+  } else {
+
+
+    if(!grepl(c('metadata|codes'), table)){
+
+      fetch_table <- switch(sub('.*\\_', '', table),
+                      'dv' = fetch_table %>%
+                        dplyr::mutate(date = lubridate::as_date(date)),
+                      'iv' = fetch_table %>%
+                        dplyr::mutate(dt = lubridate::as_datetime(dt)),
+                      'obs' = fetch_table %>%
+                        dplyr::mutate(date = lubridate::as_date(date)))
+
+
+    }
+
+      fetch_table <- fetch_table %>%
+                     dplyr::filter(!!!filters)
 
   }
 

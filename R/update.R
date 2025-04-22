@@ -97,7 +97,7 @@ hydb_append_table <- function(data,
 
   stored_sid <- unique(data[['sid']])
 
-  existing_data <- hydb_fetch(table = table, sid %in% stored_sid) %>%
+  existing_data <- hydb_fetch(table = table, sid %in% stored_sid, collect = FALSE) %>%
                    dplyr::collect() %>%
                    dt_to_tibble()
 
@@ -108,9 +108,9 @@ hydb_append_table <- function(data,
 
     print(sprintf("%d new rows added to %s.", nrow(new_rows), table))
 
-    print(sprintf("%d new sid's added to %s.", length(unique(new_rows$sid)), table))
+    print(sprintf("%d sid's for %s.", length(unique(new_rows$sid)), table))
 
-    station_stuff <- hydb_fetch('station_metadata') %>%
+    station_stuff <- hydb_fetch('station_metadata', collect = FALSE) %>%
       dplyr::collect() %>%
       dplyr::filter(sid %in% unique(new_rows$sid)) %>%
       dplyr::group_by(sid) %>%
