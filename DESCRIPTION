@@ -23,6 +23,7 @@ Imports:
     stringdist,
     httr,
     jsonlite,
-    cli
+    cli,
+    dbplyr
 Depends: 
     R (>= 2.10)

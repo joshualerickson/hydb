@@ -196,44 +196,23 @@ hydb_daily_transform <- function(data) {
 
 hydb_qaqc <- function(data) {
 
-
-  data <- data %>%
-    dt_to_tibble()
-
   if(any(startsWith(colnames(data), 'iv'))) {
 
-    colname <- colnames(data)[startsWith(colnames(data), 'iv')]
-
-    data_add_daily_stats <-  data %>%
-      dplyr::mutate( date = lubridate::as_date(dt)) %>%
+    data %>%
+      dplyr::mutate(date = lubridate::as_date(dt)) %>%
       dplyr::group_by(sid, date) %>%
       dplyr::mutate(dplyr::across(dplyr::any_of(dplyr::starts_with('iv_')),
                                   list(
-                                    sum = ~sum(.x, na.rm = TRUE),
-                                    max = ~max(.x, na.rm = TRUE),
-                                    min = ~min(.x, na.rm = TRUE),
-                                    mean = ~mean(.x, na.rm = TRUE),
-                                    median = ~median(.x, na.rm = TRUE),
-                                    stdev = ~sd(.x, na.rm = TRUE),
-                                    coef_var = ~sd(.x, na.rm = TRUE)/mean(.x, na.rm = TRUE))))  %>%
-      dplyr::slice(1) %>%
+                                    iqr = ~quantile(.x, prob = 0.75) - quantile(.x, prob = 0.25),
+                                    lb = ~quantile(.x, prob = 0.25) - 1.5*(quantile(.x, prob = 0.75) - quantile(.x, prob = 0.25)),
+                                    ub = ~quantile(.x, prob = 0.75) + 1.5*(quantile(.x, prob = 0.75) - quantile(.x, prob = 0.25)),
+                                    daily_z_score_outlier = ~ifelse(abs((.x - mean(.x, na.rm = TRUE))/sd(.x, na.rm = TRUE)) > 3, 'outlier', NA_character_),
+                                    daily_iqr_outlier = ~ifelse(.x < quantile(.x, prob = 0.25) - 1.5*(quantile(.x, prob = 0.75) - quantile(.x, prob = 0.25)) |
+                                                            .x > quantile(.x, prob = 0.75) + 1.5*(quantile(.x, prob = 0.75) - quantile(.x, prob = 0.25)),
+                                                          'outlier', NA_character_)), .names = "{fn}"))  %>%
+      #dplyr::slice(1) %>%
       dplyr::ungroup() %>%
-      dplyr::select(-dplyr::all_of(c(colname, 'dt'))) %>%
-      dplyr::relocate(date, dplyr::starts_with('iv_')) %>%
-      tidyr::pivot_longer(dplyr::starts_with('iv_'))%>%
-      dplyr::mutate(statistic_type_code = stat_cd(name))
-
-    param_type <- paste0('dv',unique(substr(data_add_daily_stats$name, 3, 8)))
-
-    variable_to_rename <- 'value'
-
-    data_add_daily_stats %>%
-      dplyr::rename(!!param_type := !!rlang::sym('value')) %>%
-      dplyr::mutate(param = colname) %>%
-      dplyr::select(-name)  %>%
-      dplyr::mutate(statistic_type_code = stat_cd_to_name(statistic_type_code)) %>%
-      tidyr::pivot_wider(values_from = dplyr::starts_with('dv_'), names_from = statistic_type_code)%>%
-      dplyr::relocate(date, sid, param, sum:coef_var)
+      dplyr::select(-c('date', 'iqr', 'lb', 'ub'))
 
   } else if (any(startsWith(colnames(data), 'dv'))) {
 

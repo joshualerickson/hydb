@@ -13,7 +13,7 @@
 hydb_fetch <- function(table,
                        ...,
                        network = NULL,
-                       mydb = hydb_connect(),
+                       mydb_path = NULL,
                        collect = TRUE) {
 
 
@@ -22,6 +22,9 @@ hydb_fetch <- function(table,
    mydb <- network
 
   }
+
+
+  mydb <- hydb_connect(mydb_path)
 
 
   fetch_table <- switch(table,
