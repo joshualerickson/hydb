@@ -2,7 +2,7 @@
 #'
 #' @param table A character vector of table names, e.g. 'station_metadata', 'flow_dv', etc.
 #' @param network NULL. Used in shiny application.
-#' @param mydb A connection object to a .sqlite db.
+#' @param mydb_path A connection object to a .sqlite db.
 #' @param collect A logical indicating whether to \link[dplyr]{collect} the table, default (TRUE).
 #' @param ... Option to pass calls to `dplyr::filter()`.
 #' @importFrom dplyr tbl "%>%"

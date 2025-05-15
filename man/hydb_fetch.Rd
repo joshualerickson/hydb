@@ -13,9 +13,9 @@ hydb_fetch(table, ..., network = NULL, mydb_path = NULL, collect = TRUE)
 
 \item{network}{NULL. Used in shiny application.}
 
-\item{collect}{A logical indicating whether to \link[dplyr]{collect} the table, default (TRUE).}
+\item{mydb_path}{A connection object to a .sqlite db.}
 
-\item{mydb}{A connection object to a .sqlite db.}
+\item{collect}{A logical indicating whether to \link[dplyr]{collect} the table, default (TRUE).}
 }
 \value{
 A data.frame
