@@ -2,7 +2,6 @@
 #'
 #' @param table A character vector of table names, e.g. 'station_metadata', 'flow_dv', etc.
 #' @param network NULL. Used in shiny application.
-#' @param mydb_path A connection object to a .sqlite db.
 #' @param collect A logical indicating whether to \link[dplyr]{collect} the table, default (TRUE).
 #' @param ... Option to pass calls to `dplyr::filter()`.
 #' @importFrom dplyr tbl "%>%"
@@ -13,7 +12,6 @@
 hydb_fetch <- function(table,
                        ...,
                        network = NULL,
-                       mydb_path = NULL,
                        collect = TRUE) {
 
 
@@ -24,7 +22,8 @@ hydb_fetch <- function(table,
   }
 
 
-  mydb <- hydb_connect(mydb_path)
+  mydb <- .hydb_get_connection()
+
 
 
   fetch_table <- switch(table,
@@ -47,6 +46,7 @@ hydb_fetch <- function(table,
                         'wtemp_dv' = tbl(mydb, 'wtemp_dv'),
                         'wtemp_obs' = tbl(mydb, 'wtemp_obs'),
                         'station_metadata' = tbl(mydb, 'station_metadata'),
+                        'station_attributes' = tbl(mydb, 'station_attributes'),
                         'stat_codes' = tbl(mydb, 'stat_codes'),
                         'param_codes' = tbl(mydb, 'param_codes'),
                         'swidth_obs' = tbl(mydb, 'swidth_obs'),
@@ -64,7 +64,7 @@ hydb_fetch <- function(table,
       dplyr::collect()
 
 
-    if(!grepl(c('metadata|codes'), table)){
+    if(!grepl(c('metadata|codes|attributes'), table)){
 
       fetch_table <- switch(sub('.*\\_', '', table),
                             'dv' = fetch_table %>%
@@ -77,12 +77,10 @@ hydb_fetch <- function(table,
 
     }
 
-    DBI::dbDisconnect(mydb)
-
   } else {
 
 
-    if(!grepl(c('metadata|codes'), table)){
+    if(!grepl(c('metadata|codes|attributes'), table)){
 
       fetch_table <- switch(sub('.*\\_', '', table),
                       'dv' = fetch_table %>%
@@ -100,6 +98,9 @@ hydb_fetch <- function(table,
 
   }
 
+
+
+
   return(fetch_table)
 
 }
@@ -107,14 +108,13 @@ hydb_fetch <- function(table,
 #' hydb Table List
 #'
 #' @param network  NULL. Used in shiny application.
-#' @param ... Arguments to pass to `hydb_connect()`
 #'
 #' @return A list of tables in the hydb database.
 #' @export
 #'
 #'
 
-hydb_tables <- function(network = NULL, ...) {
+hydb_tables <- function(network = NULL) {
 
   if(!is.null(network)){
 
@@ -123,10 +123,40 @@ hydb_tables <- function(network = NULL, ...) {
   } else {
 
 
-    mydb <- hydb_connect(...)
+    mydb <- .hydb_get_connection()
+
 
   }
 
   DBI::dbListTables(mydb)
+
+}
+
+
+#' hydb Table List
+#'
+#' @param table A character.
+#' @param network  NULL. Used in shiny application.
+#'
+#' @return A list of tables in the hydb database.
+#' @export
+#'
+#'
+
+hydb_fields <- function(table = table, network = NULL) {
+
+  if(!is.null(network)){
+
+    mydb <- network
+
+  } else {
+
+
+    mydb <- .hydb_get_connection()
+
+
+  }
+
+  DBI::dbListFields(mydb, name = table)
 
 }

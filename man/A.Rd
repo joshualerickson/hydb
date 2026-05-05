@@ -4,10 +4,12 @@
 \alias{hydb_setup_metadata}
 \title{Setup Metadata}
 \usage{
-hydb_setup_metadata(point)
+hydb_setup_metadata(point, column_map = NULL)
 }
 \arguments{
 \item{point}{An sf POINT cleaned.}
+
+\item{column_map}{A vector of names to change in point sf column names, (NULL) default.}
 }
 \value{
 A \code{tibble()} ready for appending to \code{hydb}.

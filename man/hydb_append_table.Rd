@@ -9,8 +9,7 @@ hydb_append_table(
   table = NULL,
   check = TRUE,
   copy_path = TRUE,
-  path_to_copy = NULL,
-  ...
+  path_to_copy = NULL
 )
 }
 \arguments{
@@ -23,8 +22,6 @@ hydb_append_table(
 \item{copy_path}{logical. Whether to make a copy of db.}
 
 \item{path_to_copy}{character. Where to write the copy of db if \code{copy = TRUE}.}
-
-\item{...}{Arguments to pass to \code{hydb_connect()}.}
 }
 \value{
 Nothing. Side effect to \code{hydb}.

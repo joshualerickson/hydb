@@ -2,7 +2,7 @@
 % Please edit documentation in R/tablemanip.R
 \name{hydb_qaqc}
 \alias{hydb_qaqc}
-\title{Transform IV to DV}
+\title{QA/QC table}
 \usage{
 hydb_qaqc(data)
 }
@@ -13,8 +13,8 @@ hydb_qaqc(data)
 A \code{tibble()}.
 }
 \description{
-Transform IV to DV
+QA/QC table
 }
 \note{
-Need to have columns \code{dt}, \code{sid} and \verb{iv_*} and \verb{iv_*} needs to be column position 2.
+Need to be a table from \code{hydb}.
 }

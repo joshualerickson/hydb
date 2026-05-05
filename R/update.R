@@ -1,79 +1,3 @@
-#' Fetch Data from Hydrological Database.
-#'
-#' @param table A character vector of table names, e.g. 'station_metadata', 'flow_dv', etc.
-#' @param new_values A list of column and value to change for SQL.
-#' @param conditions A list of conditions to be met for SQL.
-#' @param network NULL. Used in shiny application.
-#'
-#' @note A list
-#' @return Nothing.
-#' @export
-#'
-update_hydb <- function(table,
-                        new_values,
-                        conditions,
-                        network = NULL) {
-
-  if(missing(new_values)) {stop("Need Values to Change")}
-  if(missing(conditions)) {stop("Need Conditions")}
-
-  if(!is.null(network)){
-
-    mydb <- network
-
-  } else {
-
-    mydb <- hydb_connect()
-
-  }
-
-  uptbl(table, new_values, conditions, mydb)
-
-
-
-}
-
-
-#' Update Table
-#'
-#' @param table A character vector of table names, e.g. 'station_metadata', 'flow_dv', etc.
-#' @param new_values A list of column and value to change for SQL.
-#' @param conditions A list of conditions to be met for SQL.
-#' @param mydb A database object
-#'
-#' @return Nothing. This function updates the database
-uptbl <- function(table, new_values, conditions, mydb) {
-
-  conditions <- lapply(conditions, convert_dates)
-
- j = 0
-
- for (i in conditions) {
-
-   # set counter for new values
-    j = j + 1
-
-    set_clauses <- sapply(names(new_values[[j]]), function(col) {
-      sprintf("%s = '%s'", col, new_values[[j]][[col]])
-    })
-
-    set_clause <- paste(set_clauses, collapse = ", ")
-
-
-    condition_clauses <- sapply(names(i), function(col) {
-      sprintf("%s = '%s'", col, i[[col]])
-    })
-
-    condition_str <- paste(condition_clauses, collapse = " AND ")
-
-    update_query <- sprintf("UPDATE %s SET %s WHERE %s",
-                          table, set_clause, condition_str)
-
-     DBI::dbExecute(mydb, update_query)
- }
-
-}
-
 #' Append DB Table
 #'
 #' @param data data.frame to append.
@@ -81,7 +5,6 @@ uptbl <- function(table, new_values, conditions, mydb) {
 #' @param check logical. Checking details before appending.
 #' @param copy_path logical. Whether to make a copy of db.
 #' @param path_to_copy character. Where to write the copy of db if `copy = TRUE`.
-#' @param ... Arguments to pass to `hydb_connect()`.
 #'
 #' @return Nothing. Side effect to `hydb`.
 #' @importFrom dplyr "%>%"
@@ -92,14 +15,11 @@ hydb_append_table <- function(data,
                               table = NULL,
                               check = TRUE,
                               copy_path = TRUE,
-                              path_to_copy = NULL,
-                              ...) {
+                              path_to_copy = NULL) {
 
   stored_sid <- unique(data[['sid']])
 
-  existing_data <- hydb_fetch(table = table, sid %in% stored_sid, collect = FALSE) %>%
-                   dplyr::collect() %>%
-                   dt_to_tibble()
+  existing_data <- hydb_fetch(table = table, sid %in% stored_sid)
 
   # Get the new rows that are not duplicates
   if(!is.null(existing_data)){
@@ -110,8 +30,7 @@ hydb_append_table <- function(data,
 
     print(sprintf("%d sid's for %s.", length(unique(new_rows$sid)), table))
 
-    station_stuff <- hydb_fetch('station_metadata', collect = FALSE) %>%
-      dplyr::collect() %>%
+    station_stuff <- hydb_fetch(table = 'station_metadata') %>%
       dplyr::filter(sid %in% unique(new_rows$sid)) %>%
       dplyr::group_by(sid) %>%
       dplyr::slice(1)
@@ -129,6 +48,8 @@ hydb_append_table <- function(data,
 
   if(!check) {
 
+    con <- .hydb_get_connection()
+
     # create a copy before adding
   if(copy_path){
 
@@ -143,14 +64,14 @@ hydb_append_table <- function(data,
 
     db_path <- paste0(path_to_copy, '/copy_hydb.sqlite')
 
-    RSQLite::sqliteCopyDatabase(hydb_connect(...),db_path)
+    RSQLite::sqliteCopyDatabase(con,db_path)
 
     }
 
     }
 
     # now append
-    DBI::dbAppendTable(hydb_connect(...), name = table, value = new_rows)
+    DBI::dbAppendTable(con, name = table, value = new_rows)
 
 
     }

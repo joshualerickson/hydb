@@ -4,7 +4,7 @@
 \alias{hydb_disconnect}
 \title{Disconnect to hydb}
 \usage{
-hydb_disconnect(db = NULL)
+hydb_disconnect()
 }
 \value{
 Nothing. Side effect connecting to hydb.

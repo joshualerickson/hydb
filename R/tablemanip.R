@@ -40,80 +40,189 @@ hydb_prep_data <- function(data, wy_month = 10) {
 #' Setup Metadata
 #' @describeIn A function to setup user submitted stations metadata.
 #' @param point An sf POINT cleaned.
+#' @param column_map A vector of names to change in point sf column names, (NULL) default.
 #'
 #' @return A `tibble()` ready for appending to `hydb`.
+#' @notes In `column_map` argument use a named vector, e.g. `my_column_map <- c(station_nm = "SITE_NAME", district = "DISTRICT", comments = "REMARKS")`.
 #' @export
 #'
-hydb_setup_metadata <- function(point) {
+hydb_setup_metadata <- function(point, column_map = NULL) {
 
-  if(any(!names(point) %in% c('station_nm', 'purpose', 'comments', 'geometry'))) stop(message('need correct column names'))
+  # 0. Initial Input Validation and Setup
+  if (!inherits(point, "sf")) {
+    stop("Input 'point' must be an sf object.")
+  }
 
-  # now give each station its sid
-  # read in the admin districts
-  # will need to change from local drive to data at some point
+  # Define the target hydb station_metadata column names
+  # These are the columns the final output will have, and what the function expects internally.
+  hydb_target_cols <- c("station_nm", "forest", "district", "Long", "Lat",
+                        "sid", "region", "COMID", "comments", "purpose")
 
+  # 1. Apply column mapping and standardize names
+  if (!is.null(column_map)) {
+    # Check if all user-specified columns in the map actually exist in 'point'
+    missing_user_cols_in_map <- setdiff(unname(column_map), names(point))
+    if (length(missing_user_cols_in_map) > 0) {
+      stop(paste0("The following user columns specified in 'column_map' are not found in the input 'point' data: ",
+                  paste(missing_user_cols_in_map, collapse = ", ")))
+    }
+    # Rename columns using the provided map
+    point <- point %>% dplyr::rename(!!!column_map)
+    message("Columns renamed based on provided map.")
+  }
+
+  # 2. Ensure all `hydb_target_cols` exist, adding NA if missing
+  # This makes the data frame conform to the expected internal schema before processing.
+  cols_to_add <- setdiff(hydb_target_cols, names(point))
+  if (length(cols_to_add) > 0) {
+    message(paste("Adding missing hydb columns as NA:", paste(cols_to_add, collapse = ", ")))
+    for (col in cols_to_add) {
+      # Default to character NA, adjust type (e.g., NA_real_) if you know the column's type
+      point[[col]] <- NA_character_
+    }
+  }
+
+  # Ensure the `sid` column from the input is of character type if it exists
+  # before it's used in paste0 later.
+  if ("sid" %in% names(point)) {
+    point$sid <- as.character(point$sid)
+  }
+
+  # --- Start of your original function logic, adapted to standardized names ---
+
+  # Transform to WGS84 and make valid for spatial operations
   meta_data <- point %>%
     sf::st_transform(4326) %>%
     sf::st_make_valid()
 
-  meta_data_copy <- meta_data %>%
-    sf::st_intersection(admin_districts)
+  # Perform spatial intersection to assign initial forest/district/sid
+  # Ensure only relevant columns from admin_districts are selected to avoid
+  # bringing in too many extra columns from the spatial join.
+  # Using st_join with sf::st_intersects to ensure one-to-one or one-to-many
+  # and then handle the one-to-one selection
+  meta_data_intersect <- meta_data %>%
+    sf::st_join(admin_districts %>% dplyr::select(forest_admin = forest, district_admin = district, sid_base = sid),
+                join = sf::st_intersects,
+                left = TRUE) # Keep all points, even if they don't intersect
 
-  if(any(!meta_data$station_nm %in% meta_data_copy$station_nm)){
-    site_off_fs_land <- meta_data[!meta_data$station_nm %in% meta_data_copy$station_nm,] %>%
-      dplyr::mutate(
-        sid = admin_districts[sf::st_nearest_feature(., admin_districts),]$sid,
-        forest = admin_districts[sf::st_nearest_feature(., admin_districts),]$forest,
-        district = admin_districts[sf::st_nearest_feature(., admin_districts),]$district,
-        comments = paste0('Off NFS Land; ',comments)
-      )
-
-    meta_data_copy <- meta_data_copy %>% dplyr::bind_rows(site_off_fs_land) %>% sf::st_as_sf()
-
-  }
+  # Fill in forest, district, sid from intersection where available
+  # Prioritize existing 'district' if it was mapped from user input, otherwise use spatial result
+  meta_data_copy <- meta_data_intersect %>%
+    dplyr::mutate(
+      forest = dplyr::if_else(is.na(forest_admin), forest, forest_admin), # Use admin_districts forest
+      district = dplyr::if_else(is.na(district_admin), district, district_admin), # Use admin_districts district
+      # The base SID for generation comes from admin_districts
+      sid = dplyr::if_else(is.na(sid_base), sid, sid_base)
+    ) %>%
+    dplyr::select(-forest_admin, -district_admin, -sid_base) # Remove temporary join columns
 
 
-  meta_data_coordinates <- meta_data_copy %>% dplyr::bind_cols(dplyr::tibble(Long = sf::st_coordinates(.)[,1],Lat = sf::st_coordinates(.)[,2])) %>% sf::st_drop_geometry()
-  meta_data_copy <- meta_data_copy %>% dplyr::bind_cols(meta_data_coordinates %>% dplyr::select(Long, Lat))
+  # Handle sites that are still off NFS land (i.e., no intersection)
+  # These will have NA for 'forest' and 'district' after the st_join if they didn't intersect
+  if(any(is.na(meta_data_copy$forest) | is.na(meta_data_copy$district))){
+    message("Some stations are off NFS land or not within any known district. Finding nearest administrative district.")
+    # Identify points that didn't intersect any admin district
+    off_nfs_land_idx <- which(is.na(meta_data_copy$forest) | is.na(meta_data_copy$district))
+    site_off_fs_land <- meta_data_copy[off_nfs_land_idx,]
 
-  #check to see if it already exists and also get a unique suffix
+    if (nrow(site_off_fs_land) > 0) {
+      # Find nearest admin district for these points
+      nearest_idx <- sf::st_nearest_feature(site_off_fs_land, admin_districts)
+      nearest_admin_info <- admin_districts[nearest_idx,] %>%
+        sf::st_drop_geometry() %>%
+        dplyr::select(forest_nearest = forest, district_nearest = district, sid_nearest = sid)
 
-  md_stations <- hydb_fetch('station_metadata', collect = T)
+      # Update the off-NFS sites with info from nearest district
+      site_off_fs_land <- site_off_fs_land %>%
+        dplyr::bind_cols(nearest_admin_info) %>%
+        dplyr::mutate(
+          forest = dplyr::if_else(is.na(forest), forest_nearest, forest),
+          district = dplyr::if_else(is.na(district), district_nearest, district),
+          sid = dplyr::if_else(is.na(sid), sid_nearest, sid),
+          comments = paste0('Off NFS Land (nearest district assigned); ', dplyr::if_else(is.na(comments), "", comments))
+        ) %>%
+        dplyr::select(-forest_nearest, -district_nearest, -sid_nearest) # Remove temporary columns
 
-  district_filter <- unique(meta_data_copy$district)
-
-  md <- md_stations %>% dplyr::filter(district %in% district_filter) %>% dplyr::collect()
-
-  md_start <- max(as.numeric(substr(md$sid, 7, nchar(md$sid))))
-
-  #now add unique 5-digit code
-
-  meta_data_copy <- meta_data_copy %>%
-    dplyr::arrange(dplyr::desc(Lat)) %>%
-    dplyr::mutate(sid = paste0(sid, sprintf("%05d", md_start + dplyr::row_number())))
-
-  if(any(meta_data$station_nm %in% md_stations$station_nm)){
-    if (yesno(paste0('There is ',sum(meta_data$station_nm %in% md_stations$station_nm > 0) ,' `station_nm` named the same.\n Do you wnat to continue?'))) {
-      return(invisible())
+      # Update the main meta_data_copy with the corrected off-NFS sites
+      meta_data_copy[off_nfs_land_idx,] <- site_off_fs_land
     }
   }
 
-  #then run to get COMID
+  # Extract coordinates (Long/Lat) from geometry. This is the definitive source.
+  meta_data_copy <- meta_data_copy %>%
+    dplyr::mutate(
+      Long = sf::st_coordinates(.)[,1],
+      Lat = sf::st_coordinates(.)[,2]
+    )
+
+  # Check for existing stations and generate unique SIDs
+  md_stations <- hydb_fetch('station_metadata', collect = TRUE)
+
+  # Filter existing metadata by districts present in the current batch of points
+  district_filter <- unique(meta_data_copy$district)
+  md <- md_stations %>% dplyr::filter(district %in% district_filter)
+
+  # Determine the starting suffix for new SIDs based on existing SIDs in these districts
+  md_start <- 0
+  if (nrow(md) > 0) {
+    # Extract numeric part of SID (assuming format like FSTX#####)
+    # Handle potential NAs or non-matching formats gracefully
+    numeric_sids <- suppressWarnings(as.numeric(substr(md$sid, 7, nchar(md$sid))))
+    md_start <- max(numeric_sids, na.rm = TRUE)
+    if (!is.finite(md_start)) md_start <- 0 # If max is Inf or -Inf due to all NAs
+  }
+
+  # Generate unique 5-digit code for sid
+  # Ensure 'sid' column (the base district SID) exists before trying to paste to it.
+  # Points that didn't intersect or find a nearest district might have NA for 'sid'.
+  # We should filter them out or assign a default before generating the suffix.
+  if (any(is.na(meta_data_copy$sid))) {
+    warning("Some points could not be assigned a base district SID and will have NA for final SID.")
+  }
+
+  meta_data_copy <- meta_data_copy %>%
+    dplyr::arrange(dplyr::desc(Lat)) %>% # Arrange for consistent SID assignment
+    dplyr::mutate(
+      # Only generate suffix if base sid is available
+      sid_suffix = sprintf("%05d", md_start + dplyr::row_number()),
+      sid = dplyr::if_else(!is.na(sid), paste0(sid, sid_suffix), NA_character_)
+    ) %>%
+    dplyr::select(-sid_suffix) # Remove temporary suffix column
+
+  # Check for duplicate station names
+  if(any(meta_data_copy$station_nm %in% md_stations$station_nm)){
+    # Using yesno for interaction; for automated scripts, you might want a different default behavior
+    if (!yesno(paste0('There are ',sum(meta_data_copy$station_nm %in% md_stations$station_nm > 0) ,' `station_nm` named the same as existing records.\n Do you want to continue?'))) {
+      message("Operation cancelled by user due to duplicate station names.")
+      return(invisible(NULL)) # Return NULL or original data
+    }
+  }
+
+  # Get COMID for each station
   comids_nwis <- meta_data_copy %>%
     split(.$sid) %>%
-    purrr::map(~comids(.))
+    purrr::map_df(~dplyr::tibble(sid = .x$sid[1], COMID = comids(.x))) %>%
+    dplyr::mutate(COMID = as.character(COMID)) # Use map_df to combine results easily
 
-
-  comids_nwis <- dplyr::tibble(COMID = as.character(comids_nwis),
-                        sid = names(comids_nwis))
-
+  # Join COMIDs back
   meta_data_final <- meta_data_copy  %>%
-                    dplyr::left_join(comids_nwis) %>%
-                    sf::st_drop_geometry() %>%
-                    dplyr::mutate(region = 'Northern Region')
+    dplyr::left_join(comids_nwis, by = "sid", suffix = c("", "_new")) %>%
+    # Prefer newly generated COMID if old one was NA
+    dplyr::mutate(COMID = dplyr::if_else(is.na(COMID), COMID_new, COMID)) %>%
+    dplyr::select(-COMID_new) %>%
+    sf::st_drop_geometry() %>%
+    # Ensure region column exists and set it if it was NA
+    dplyr::mutate(region = dplyr::if_else(is.na(region), 'Northern Region', region))
 
+  # 3. Final Column Selection and Ordering
+  # Ensure all target columns are present, and select them in the correct order.
+  # This will drop any user-specific columns that were not mapped.
+  final_output_df <- meta_data_final %>%
+    dplyr::select(dplyr::all_of(hydb_target_cols))
 
+  return(final_output_df)
 }
+
 
 
 #' Transform IV to DV or DV to IV
@@ -186,14 +295,14 @@ hydb_daily_transform <- function(data) {
 }
 
 
-#' Transform IV to DV
+#' QA/QC table
 #'
 #' @param data A data.frame
 #'
 #' @return A `tibble()`.
 #' @export
 #' @importFrom dplyr "%>%"
-#' @note Need to have columns `dt`, `sid` and `iv_*` and `iv_*` needs to be column position 2.
+#' @note Need to be a table from `hydb`.
 
 hydb_qaqc <- function(data) {
 
@@ -303,6 +412,9 @@ hydb_conversions <- function(x, type) {
 
 hydb_station_info <- function(data, hydbtables = 'all') {
 
+  con <- .hydb_get_connection()
+
+
   if(any(class(data) %in% c('data.frame', 'tbl', 'tbl_df'))){
 
     stored_sid <- unique(data[['sid']])
@@ -313,7 +425,7 @@ hydb_station_info <- function(data, hydbtables = 'all') {
 
   }
 
-  tables <- DBI::dbListTables(hydb_connect())
+  tables <- DBI::dbListTables(con)
 
   if(any(tables != 'all')){
 
